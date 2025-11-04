@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 1996, 1998-2005, 2007-2021
+ * Copyright (c) 1996, 1998-2005, 2007-2025
  *	Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -49,7 +49,7 @@ enum tgetpass_errval {
 static volatile sig_atomic_t signo[NSIG];
 
 static void tgetpass_handler(int);
-static char *getln(int, char *, size_t, bool, enum tgetpass_errval *);
+static char *getln(int, char *, size_t, bool, bool, enum tgetpass_errval *);
 static char *sudo_askpass(const char *, const char *);
 
 static int
@@ -112,7 +112,7 @@ tgetpass(const char *prompt, int timeout, unsigned int flags,
     static const char *askpass;
     static char buf[SUDO_CONV_REPL_MAX + 1];
     int i, input, output, save_errno, ttyfd;
-    bool feedback, need_restart, neednl;
+    bool cbreak, feedback, need_restart;
     enum tgetpass_errval errval;
     debug_decl(tgetpass, SUDO_DEBUG_CONV);
 
@@ -158,7 +158,7 @@ restart:
 	signo[i] = 0;
     pass = NULL;
     save_errno = 0;
-    neednl = false;
+    cbreak = false;
     need_restart = false;
     feedback = false;
 
@@ -173,17 +173,21 @@ restart:
 	output = ttyfd;
     }
 
-    /*
-     * If we are using a tty but are not the foreground pgrp this will
-     * return EINTR.  We send ourself SIGTTOU bracketed by callbacks.
-     */
     if (!ISSET(flags, TGP_ECHO)) {
+	/*
+	 * Instead of just disabling echo, we enable "cbreak" mode.
+	 * This lets us read one character at a time, which is also
+	 * necessary when masking input (for the pwfeedback option).
+	 */
 	for (;;) {
+	    /*
+	     * If we are using a tty but are not the foreground pgrp this will
+	     * return EINTR.  We send ourself SIGTTOU bracketed by callbacks.
+	     */
+	    cbreak = sudo_term_cbreak(input, true);
 	    if (ISSET(flags, TGP_MASK))
-		neednl = feedback = sudo_term_cbreak(input, true);
-	    else
-		neednl = sudo_term_noecho(input);
-	    if (neednl || errno != EINTR)
+		feedback = cbreak;
+	    if (cbreak || errno != EINTR)
 		break;
 	    /* Received SIGTTOU, suspend the process. */
 	    if (suspend(SIGTTOU, callback) == -1) {
@@ -216,18 +220,19 @@ restart:
 	if (write(output, "\a", 1) != 1)
 	    goto restore;
     }
-    if (prompt) {
+    if (prompt != NULL) {
 	if (write(output, prompt, strlen(prompt)) < 0)
 	    goto restore;
     }
 
     if (timeout > 0)
 	alarm((unsigned int)timeout);
-    pass = getln(input, buf, sizeof(buf), feedback, &errval);
+    pass = getln(input, buf, sizeof(buf), cbreak, feedback, &errval);
     alarm(0);
     save_errno = errno;
 
-    if (neednl || pass == NULL) {
+    if (cbreak || pass == NULL) {
+	/* No newline was displayed. */
 	if (write(output, "\n", 1) != 1)
 	    goto restore;
     }
@@ -345,7 +350,7 @@ sudo_askpass(const char *askpass, const char *prompt)
 
     /* Get response from child (askpass). */
     (void) close(pfd[1]);
-    pass = getln(pfd[0], buf, sizeof(buf), 0, &errval);
+    pass = getln(pfd[0], buf, sizeof(buf), false, false, &errval);
     (void) close(pfd[0]);
 
     tgetpass_display_error(errval);
@@ -392,7 +397,7 @@ last_chunk_len(const char *buf, ssize_t len)
 }
 
 static char *
-getln(int fd, char *buf, size_t bufsiz, bool feedback,
+getln(int fd, char *buf, size_t bufsiz, bool cbreak, bool feedback,
     enum tgetpass_errval *errval)
 {
     ssize_t nr = -1;
@@ -414,28 +419,33 @@ getln(int fd, char *buf, size_t bufsiz, bool feedback,
 	nr = read(fd, &c, 1);
 	if (nr != 1 || c == '\n' || c == '\r')
 	    break;
-	if (feedback) {
+	if (cbreak) {
 	    if (c == sudo_term_eof) {
 		nr = 0;
 		break;
 	    } else if (c == sudo_term_kill) {
 		while (cp > buf) {
-		    if (write(fd, "\b \b", 3) != 3)
-			break;
+		    if (feedback) {
+			if (write(fd, "\b \b", 3) != 3)
+			    break;
+		    }
 		    cp -= last_chunk_len(buf, cp - buf);
 		}
 		cp = buf;
 		continue;
 	    } else if (c == sudo_term_erase) {
 		if (cp > buf) {
-		    ignore_result(write(fd, "\b \b", 3));
+		    if (feedback)
+			ignore_result(write(fd, "\b \b", 3));
 		    cp -= last_chunk_len(buf, cp - buf);
 		}
 		continue;
 	    }
 	    *cp++ = c;
-	    if (last_chunk_len(buf, cp - buf) == 1)
-	        ignore_result(write(fd, "*", 1));
+	    if (feedback) {
+		if (last_chunk_len(buf, cp - buf) == 1)
+		    ignore_result(write(fd, "*", 1));
+	    }
 	} else {
 	    *cp++ = c;
 	}
