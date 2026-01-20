@@ -596,7 +596,7 @@ create_iolog_path(struct connection_closure *closure)
 	    logsrvd_conf_iolog_dir());
 	goto bad;
     }
-    if (contains_dot_dot(expanded_dir)) {
+    if (sudo_contains_dot_dot(expanded_dir)) {
 	sudo_warnx(U_("unable to expand iolog path %s: path traversal attack"),
 	    logsrvd_conf_iolog_dir());
 	goto bad;
@@ -608,7 +608,7 @@ create_iolog_path(struct connection_closure *closure)
 	    logsrvd_conf_iolog_file());
 	goto bad;
     }
-    if (contains_dot_dot(expanded_file)) {
+    if (sudo_contains_dot_dot(expanded_file)) {
 	sudo_warnx(U_("unable to expand iolog path %s: path traversal attack"),
 	    logsrvd_conf_iolog_file());
 	goto bad;

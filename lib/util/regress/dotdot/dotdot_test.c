@@ -34,7 +34,7 @@
 #include <sudo_fatal.h>
 #include <sudo_queue.h>
 
-#include <logsrv_util.h>
+#include <sudo_util.h>
 
 sudo_dso_public int main(int argc, char *argv[]);
 
@@ -96,7 +96,7 @@ static struct test_data test_data[] = {
 };
 
 /*
- * Verify contains_dot_dot() behavior
+ * Verify sudo_contains_dot_dot() behavior
  */
 int
 main(int argc, char *argv[])
@@ -119,7 +119,7 @@ main(int argc, char *argv[])
     }
 
     for (i = 0; test_data[i].str != NULL; i++) {
-	bool result = contains_dot_dot(test_data[i].str);
+	bool result = sudo_contains_dot_dot(test_data[i].str);
 	if (result != test_data[i].expected) {
 	    sudo_warnx("test %zu:%s: expected %s, got %s", i,
 		test_data[i].str, test_data[i].expected ? "true" : "false",

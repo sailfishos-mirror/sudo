@@ -188,6 +188,10 @@ sudo_dso_public size_t sudo_base64_encode_v1(const unsigned char * restrict in, 
 sudo_dso_public char *sudo_basename_v1(const char *filename);
 #define sudo_basename(_a) sudo_basename_v1(_a)
 
+/* dotdot.c */
+sudo_dso_public bool sudo_contains_dot_dot_v1(const char *str);
+#define sudo_contains_dot_dot(_a) sudo_contains_dot_dot_v1(_a)
+
 /* gethostname.c */
 sudo_dso_public char *sudo_gethostname_v1(void);
 #define sudo_gethostname() sudo_gethostname_v1()

@@ -19,6 +19,7 @@ sudo_conf_plugins_v1
 sudo_conf_probe_interfaces_v1
 sudo_conf_read_v1
 sudo_conf_sesh_path_v1
+sudo_contains_dot_dot_v1
 sudo_debug_deregister_v1
 sudo_debug_enter_v1
 sudo_debug_execve2_v1

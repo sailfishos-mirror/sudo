@@ -29,13 +29,13 @@
 
 #include <sudo_compat.h>
 #include <sudo_debug.h>
-#include <logsrv_util.h>
+#include <sudo_util.h>
 
 bool
-contains_dot_dot(const char *str)
+sudo_contains_dot_dot_v1(const char *str)
 {
     const char *cp;
-    debug_decl(contains_dot_dot, SUDO_DEBUG_UTIL);
+    debug_decl(sudo_contains_dot_dot, SUDO_DEBUG_UTIL);
 
     for (cp = str; *cp != '\0'; cp++) {
 	/* Match ".." */

@@ -112,8 +112,8 @@ PVS_IGNORE = 'V707,V011,V002,V536,V795'
 PVS_LOG_OPTS = -a 'GA:1,2' -e -t errorfile -d $(PVS_IGNORE)
 
 # Regression tests
-TEST_PROGS = base64_test conf_test digest_test getgids getgrouplist_test \
-	     hexchar_test hltq_test json_test multiarch_test \
+TEST_PROGS = base64_test conf_test digest_test dotdot_test getgids \
+	     getgrouplist_test hexchar_test hltq_test json_test multiarch_test \
 	     open_parent_dir_test parse_gids_test parseln_test progname_test \
 	     regex_test strsplit_test strtobool_test strtoid_test \
 	     strtomode_test strtonum_test uuid_test @COMPAT_TEST_PROGS@
@@ -145,14 +145,15 @@ DEVEL = @DEVEL@
 
 SHELL = @SHELL@
 
-LTOBJS = b64_decode.lo b64_encode.lo basename.lo @DIGEST@ event.lo fatal.lo \
-	 key_val.lo gethostname.lo gettime.lo getgrouplist.lo gidlist.lo \
-	 hexchar.lo json.lo lbuf.lo locking.lo logfac.lo login_max.lo \
-	 logpri.lo mkdir_parents.lo mmap_alloc.lo multiarch.lo parseln.lo \
-	 progname.lo rcstr.lo regex.lo roundup.lo secure_path.lo setgroups.lo \
-	 strsplit.lo strtobool.lo strtoid.lo strtomode.lo strtonum.lo \
-	 sudo_conf.lo sudo_debug.lo sudo_dso.lo term.lo ttyname_dev.lo \
-	 ttysize.lo uuid.lo @COMMON_OBJS@ @LTLIBOBJS@
+LTOBJS = b64_decode.lo b64_encode.lo basename.lo @DIGEST@ dotdot.lo \
+         event.lo fatal.lo key_val.lo gethostname.lo gettime.lo \
+         getgrouplist.lo gidlist.lo hexchar.lo json.lo lbuf.lo \
+         locking.lo logfac.lo login_max.lo logpri.lo mkdir_parents.lo \
+         mmap_alloc.lo multiarch.lo parseln.lo progname.lo rcstr.lo \
+         regex.lo roundup.lo secure_path.lo setgroups.lo strsplit.lo \
+         strtobool.lo strtoid.lo strtomode.lo strtonum.lo sudo_conf.lo \
+         sudo_debug.lo sudo_dso.lo term.lo ttyname_dev.lo ttysize.lo \
+         uuid.lo @COMMON_OBJS@ @LTLIBOBJS@
 
 IOBJS = $(LTOBJS:.lo=.i)
 
@@ -171,6 +172,8 @@ CLOSEFROM_TEST_OBJS = closefrom_test.lo closefrom.lo
 CONF_TEST_OBJS = conf_test.lo sudo_conf.lo
 
 DIGEST_TEST_OBJS = digest_test.lo @DIGEST@
+
+DOTDOT_TEST_OBJS = dotdot_test.lo dotdot.lo
 
 FNM_TEST_OBJS = fnm_test.lo fnmatch.lo
 
@@ -297,6 +300,9 @@ conf_test: $(CONF_TEST_OBJS) libsudo_util.la
 
 digest_test: $(DIGEST_TEST_OBJS) libsudo_util.la
 	$(LIBTOOL) $(LTFLAGS) --mode=link $(CC) -o $@ $(DIGEST_TEST_OBJS) libsudo_util.la $(ASAN_LDFLAGS) $(PIE_LDFLAGS) $(HARDENING_LDFLAGS) $(TEST_LDFLAGS) $(TEST_LIBS) @LIBCRYPTO@
+
+dotdot_test: $(DOTDOT_TEST_OBJS) libsudo_util.la
+	$(LIBTOOL) $(LTFLAGS) --mode=link $(CC) -o $@ $(DOTDOT_TEST_OBJS) libsudo_util.la $(ASAN_LDFLAGS) $(PIE_LDFLAGS) $(HARDENING_LDFLAGS) $(TEST_LDFLAGS) $(TEST_LIBS) @LIBCRYPTO@
 
 fnm_test: $(FNM_TEST_OBJS) libsudo_util.la
 	$(LIBTOOL) $(LTFLAGS) --mode=link $(CC) -o $@ $(FNM_TEST_OBJS) libsudo_util.la $(ASAN_LDFLAGS) $(PIE_LDFLAGS) $(HARDENING_LDFLAGS) $(TEST_LDFLAGS) $(TEST_LIBS)
@@ -468,6 +474,7 @@ check: $(TEST_PROGS) check-fuzzer
 		./closefrom_test $(TEST_VERBOSE) || rval=`expr $$rval + $$?`; \
 	    fi; \
 	    ./digest_test $(TEST_VERBOSE) || rval=`expr $$rval + $$?`; \
+	    ./dotdot_test $(TEST_VERBOSE) || rval=`expr $$rval + $$?`; \
 	    if test -f fnm_test; then \
 		./fnm_test $(TEST_VERBOSE) $(srcdir)/regress/fnmatch/fnm_test.in || rval=`expr $$rval + $$?`; \
 	    fi; \
@@ -718,6 +725,30 @@ digest_test.i: $(srcdir)/regress/digest/digest_test.c \
 	$(CPP) $(CPPFLAGS) $(srcdir)/regress/digest/digest_test.c > $@
 digest_test.plog: digest_test.i
 	rm -f $@; pvs-studio --cfg $(PVS_CFG) --source-file $(srcdir)/regress/digest/digest_test.c --i-file digest_test.i --output-file $@
+dotdot.lo: $(srcdir)/dotdot.c $(incdir)/compat/stdbool.h \
+           $(incdir)/sudo_compat.h $(incdir)/sudo_debug.h \
+           $(incdir)/sudo_queue.h $(incdir)/sudo_util.h $(top_builddir)/config.h
+	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c -o $@ $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $(srcdir)/dotdot.c
+dotdot.i: $(srcdir)/dotdot.c $(incdir)/compat/stdbool.h \
+           $(incdir)/sudo_compat.h $(incdir)/sudo_debug.h \
+           $(incdir)/sudo_queue.h $(incdir)/sudo_util.h $(top_builddir)/config.h
+	$(CPP) $(CPPFLAGS) $(srcdir)/dotdot.c > $@
+dotdot.plog: dotdot.i
+	rm -f $@; pvs-studio --cfg $(PVS_CFG) --source-file $(srcdir)/dotdot.c --i-file dotdot.i --output-file $@
+dotdot_test.lo: $(srcdir)/regress/dotdot/dotdot_test.c \
+                $(incdir)/compat/stdbool.h $(incdir)/sudo_compat.h \
+                $(incdir)/sudo_fatal.h $(incdir)/sudo_plugin.h \
+                $(incdir)/sudo_queue.h $(incdir)/sudo_util.h \
+                $(top_builddir)/config.h
+	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c -o $@ $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $(srcdir)/regress/dotdot/dotdot_test.c
+dotdot_test.i: $(srcdir)/regress/dotdot/dotdot_test.c \
+                $(incdir)/compat/stdbool.h $(incdir)/sudo_compat.h \
+                $(incdir)/sudo_fatal.h $(incdir)/sudo_plugin.h \
+                $(incdir)/sudo_queue.h $(incdir)/sudo_util.h \
+                $(top_builddir)/config.h
+	$(CPP) $(CPPFLAGS) $(srcdir)/regress/dotdot/dotdot_test.c > $@
+dotdot_test.plog: dotdot_test.i
+	rm -f $@; pvs-studio --cfg $(PVS_CFG) --source-file $(srcdir)/regress/dotdot/dotdot_test.c --i-file dotdot_test.i --output-file $@
 dup3.lo: $(srcdir)/dup3.c $(incdir)/sudo_compat.h $(top_builddir)/config.h
 	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c -o $@ $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $(srcdir)/dup3.c
 dup3.i: $(srcdir)/dup3.c $(incdir)/sudo_compat.h $(top_builddir)/config.h

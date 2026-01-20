@@ -462,7 +462,7 @@ decode_log_id(const char *b64_log_id, unsigned char uuid[restrict static 16])
 	debug_return_str(NULL);
     }
     path = (char *)&log_id_buf[16];
-    if (contains_dot_dot(path)) {
+    if (sudo_contains_dot_dot(path)) {
 	sudo_warnx("%s", U_("RestartMessage log_id path traversal attack"));
 	debug_return_str(NULL);
     }
