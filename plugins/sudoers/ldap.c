@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2003-2023 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2003-2023, 20255-2026 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * This code is derived from software contributed by Aaron Spangler.
  *
@@ -315,8 +315,9 @@ sudo_ldap_check_non_unix_group(struct sudoers_context *ctx,
     }
 
     /* walk through values */
-    for (p = bv; *p != NULL && !ret; p++) {
+    for (p = bv; *p != NULL; p++) {
 	bool negated = false;
+	int match = DENY;
 	const char *val = (*p)->bv_val;
 
 	if (*val == '!') {
@@ -324,22 +325,24 @@ sudo_ldap_check_non_unix_group(struct sudoers_context *ctx,
 	    negated = true;
 	}
 	if (*val == '+') {
-	    if (netgr_matches(nss, val,
+	    match = netgr_matches(nss, val,
 		def_netgroup_tuple ? ctx->runas.host : NULL,
-		def_netgroup_tuple ? ctx->runas.shost : NULL, pw->pw_name) == ALLOW)
-		ret = true;
+		def_netgroup_tuple ? ctx->runas.shost : NULL, pw->pw_name);
 	    DPRINTF2("ldap sudoUser netgroup '%s%s' ... %s",
-		negated ? "!" : "", val, ret ? "MATCH!" : "not");
+		negated ? "!" : "", val, match == ALLOW ? "MATCH!" : "not");
 	} else {
 	    if (group_plugin_query(pw->pw_name, val + 2, pw))
-		ret = true;
+		match = ALLOW;
 	    DPRINTF2("ldap sudoUser non-Unix group '%s%s' ... %s",
-		negated ? "!" : "", val, ret ? "MATCH!" : "not");
+		negated ? "!" : "", val, match == ALLOW ? "MATCH!" : "not");
 	}
-	/* A negated match overrides all other entries. */
-	if (ret && negated) {
-	    ret = false;
-	    break;
+	if (match == ALLOW) {
+	    if (negated) {
+		/* A negated match overrides all other entries. */
+		ret = false;
+		break;
+	    }
+	    ret = true;
 	}
     }
 
