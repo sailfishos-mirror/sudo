@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2003-2022 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2003-2023, 2026 Todd C. Miller <Todd.Miller@sudo.ws>
  * Copyright (c) 2011 Daniel Kopecek <dkopecek@redhat.com>
  *
  * This code is derived from software contributed by Aaron Spangler.
@@ -187,7 +187,7 @@ sudo_sss_check_user(struct sudoers_context *ctx, struct sudo_sss_handle *handle,
     }
 
     /* Walk through sudoUser values.  */
-    for (i = 0; val_array[i] != NULL && !ret; ++i) {
+    for (i = 0; val_array[i] != NULL; ++i) {
 	const char *val = val_array[i];
 	bool negated = false;
 
