@@ -832,7 +832,7 @@ sudo_ldap_build_pass1(struct sudoers_context *ctx, LDAP *ld, struct passwd *pw)
     }
 
     /* Add space for the global OR clause + (sudoUser=ALL) + NOT + NUL. */
-    sz += sizeof("(|(sudoUser=ALL)(!(|)))");
+    sz += sizeof("(|(sudoUser=ALL)(!(|(sudoUser=!ALL))))");
 
     /* Add space for username and uid, including the negated versions. */
     sz += ((sizeof("(sudoUser=)(sudoUser=#)") - 1 +
@@ -969,12 +969,13 @@ sudo_ldap_build_pass1(struct sudoers_context *ctx, LDAP *ld, struct passwd *pw)
 	free(ng);
     }
 
-    /* Add ALL to list. */
+    /* Add ALL to the list and close it. */
     CHECK_STRLCAT(buf, "(sudoUser=ALL))", sz);
 
     /* Add filter for negated entries. */
     CHECK_STRLCAT(buf, "(!(|", sz);
     CHECK_STRLCAT(buf, notbuf, sz);
+    CHECK_STRLCAT(buf, "(sudoUser=!ALL)", sz);
     CHECK_STRLCAT(buf, ")", sz);
 
     /* Add the time restriction, or simply end the global OR. */
