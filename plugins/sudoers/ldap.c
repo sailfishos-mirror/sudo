@@ -324,13 +324,13 @@ sudo_ldap_check_non_unix_group(struct sudoers_context *ctx,
 	    val++;
 	    negated = true;
 	}
-	if (*val == '+') {
+	if (val[0] == '+') {
 	    match = netgr_matches(nss, val,
 		def_netgroup_tuple ? ctx->runas.host : NULL,
 		def_netgroup_tuple ? ctx->runas.shost : NULL, pw->pw_name);
 	    DPRINTF2("ldap sudoUser netgroup '%s%s' ... %s",
 		negated ? "!" : "", val, match == ALLOW ? "MATCH!" : "not");
-	} else {
+	} else if (val[0] == '%' && val[1] == ':') {
 	    if (group_plugin_query(pw->pw_name, val + 2, pw))
 		match = ALLOW;
 	    DPRINTF2("ldap sudoUser non-Unix group '%s%s' ... %s",
