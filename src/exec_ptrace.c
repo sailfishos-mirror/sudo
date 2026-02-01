@@ -1923,6 +1923,10 @@ ptrace_intercept_execve(pid_t pid, struct intercept_closure *closure)
 	    sudo_warnx("%s", U_(closure->errstr));
     }
 
+    /* Restore original argv[0] after policy check (if set). */
+    if (*orig_argv0 != '\0')
+	argv[0] = orig_argv0;
+
     switch (closure->state) {
     case POLICY_TEST:
 	path_mismatch = true;
@@ -1941,17 +1945,24 @@ ptrace_intercept_execve(pid_t pid, struct intercept_closure *closure)
 	 */
 	if (strcmp(pathname, closure->command) != 0)
 	    path_mismatch = true;
-	if (!path_mismatch) {
-	    /* Path unchanged, restore original argv[0]. */
-	    if (strcmp(argv[0], orig_argv0) != 0) {
-		argv[0] = orig_argv0;
-		free(closure->run_argv[0]);
-		closure->run_argv[0] = strdup(orig_argv0);
-		if (closure->run_argv[0] == NULL) {
-		    sudo_warnx(U_("%s: %s"), __func__,
-			U_("unable to allocate memory"));
-		}
+	if (argv[0][0] != '/' && closure->run_argv[0][0] == '/') {
+	    /* Original argv was not a path, store basename. */
+	    const char *base = sudo_basename(closure->run_argv[0]);
+	    char *run_argv0;
+	    if (argv[0][0] == '-') {
+		/* Special case for login shell, starts with a '-'. */
+		if (asprintf(&run_argv0, "-%s", base) == -1)
+		    run_argv0 = NULL;
+	    } else {
+		run_argv0 = strdup(base);
 	    }
+	    if (run_argv0 == NULL) {
+		sudo_warnx(U_("%s: %s"), __func__,
+		    U_("unable to allocate memory"));
+		goto done;
+	    }
+	    free(closure->run_argv[0]);
+	    closure->run_argv[0] = run_argv0;
 	}
 	for (i = 0; closure->run_argv[i] != NULL && argv[i] != NULL; i++) {
 	    if (strcmp(closure->run_argv[i], argv[i]) != 0) {
