@@ -606,6 +606,20 @@ handle_exit(const ExitMessage *msg, const uint8_t *buf, size_t len,
 	closure->errstr = _("invalid ExitMessage");
 	debug_return_bool(false);
     }
+    if (msg->signal[0] != '\0') {
+	/*
+	 * We do not know the list of valid signals for the client
+	 * system but we can restrict the value to a small string
+	 * of uppercase ascii characters, '+', '-', and digits.
+	 */
+	size_t siglen = strlen(msg->signal);
+	if (siglen > 10 || strspn(msg->signal,
+		"ABCDEFGHIJKLMNOPQRSTUVWXYZ+-0123456789") != siglen) {
+	    sudo_warnx(U_("%s: %s"), source, U_("invalid ExitMessage"));
+	    closure->errstr = _("invalid ExitMessage");
+	    debug_return_bool(false);
+	}
+    }
     sudo_debug_printf(SUDO_DEBUG_INFO, "%s: received ExitMessage from %s",
 	source, __func__);
 
