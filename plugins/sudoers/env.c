@@ -194,6 +194,7 @@ static const char *initial_badenv_table[] = {
     "NODE_PATH",		/* node.js, module search path */
     "GIT_SSH_COMMAND",		/* git, custom SSH command */
     "GIT_CONFIG_GLOBAL",	/* git, global config file override */
+    "GCONV_PATH",		/* glibc generic char set conversion iface */
     "*=()*",			/* bash functions */
     NULL
 };
