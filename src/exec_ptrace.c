@@ -1171,7 +1171,7 @@ set_exec_filter(void)
 	BPF_STMT(BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, nr)),
 	/* Jump to trace for compat2 execve(2)/execveat(2), else allow. */
 	BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, COMPAT2_execve, 1, 0),
-	BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, COMPAT2_execveat, 0, 13),
+	BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, COMPAT2_execveat, 0, 14),
 	/* Trace execve(2)/execveat(2) syscalls (w/ compat flag) */
 	BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_TRACE | COMPAT_FLAG),
 # endif /* SECCOMP_AUDIT_ARCH_COMPAT2 */
@@ -1182,7 +1182,7 @@ set_exec_filter(void)
 	BPF_STMT(BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, nr)),
 	/* Jump to trace for compat execve(2)/execveat(2), else allow. */
 	BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, COMPAT_execve, 1, 0),
-	BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, COMPAT_execveat, 0, 8),
+	BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, COMPAT_execveat, 0, 9),
 	/* Trace execve(2)/execveat(2) syscalls (w/ compat flag) */
 	BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_TRACE | COMPAT_FLAG),
 # endif /* SECCOMP_AUDIT_ARCH_COMPAT */
