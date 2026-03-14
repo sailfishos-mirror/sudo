@@ -94,6 +94,7 @@ static void sudo_check_suid(const char *path);
 static char **get_user_info(struct user_details *);
 static void command_info_to_details(char * const info[],
     struct command_details *details);
+static void set_time_zone(void);
 static void gc_init(void);
 
 /* Policy plugin convenience functions. */
@@ -158,7 +159,8 @@ main(int argc, char *argv[], char *envp[])
     bindtextdomain(PACKAGE_NAME, LOCALEDIR);
     textdomain(PACKAGE_NAME);
 
-    (void) tzset();
+    /* Use system time zone, not user-specified. */
+    set_time_zone();
 
     /* Must be done before we do any password lookups */
 #if defined(HAVE_GETPRPWNAM) && defined(HAVE_SET_AUTH_PARAMETERS)
@@ -334,6 +336,24 @@ access_denied:
     sudo_debug_exit_int(__func__, __FILE__, __LINE__, sudo_debug_subsys,
 	EXIT_FAILURE);
     return EXIT_FAILURE;
+}
+
+/*
+ * Set the time zone using tzset(3), ignoring the user's TZ
+ * environment variable.  The original value of TZ may still
+ * be present in the command's environment, depending on sudoers.
+ */
+static void
+set_time_zone(void)
+{
+    extern char **environ;
+    char **real_environ = environ;
+    char *empty[] = { NULL };
+
+    /* Use system time zone, not user-specified. */
+    environ = empty;
+    (void) tzset();
+    environ = real_environ;
 }
 
 int
