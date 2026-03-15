@@ -1163,50 +1163,50 @@ set_exec_filter(void)
 {
     struct sock_filter exec_filter[] = {
 	/* Load architecture value (AUDIT_ARCH_*) into the accumulator. */
-	BPF_STMT(BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, arch)),
+/*00*/	BPF_STMT(BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, arch)),
 # ifdef SECCOMP_AUDIT_ARCH_COMPAT2
 	/* Match on the compat2 architecture or jump to the compat check. */
-	BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, SECCOMP_AUDIT_ARCH_COMPAT2, 0, 4),
+/*01*/	BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, SECCOMP_AUDIT_ARCH_COMPAT2, 0, 4),
 	/* Load syscall number into the accumulator. */
-	BPF_STMT(BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, nr)),
+/*02*/	BPF_STMT(BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, nr)),
 	/* Jump to trace for compat2 execve(2)/execveat(2), else allow. */
-	BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, COMPAT2_execve, 1, 0),
-	BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, COMPAT2_execveat, 0, 14),
+/*03*/	BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, COMPAT2_execve, 1, 0),
+/*04*/	BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, COMPAT2_execveat, 0, 14),
 	/* Trace execve(2)/execveat(2) syscalls (w/ compat flag) */
-	BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_TRACE | COMPAT_FLAG),
+/*05*/	BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_TRACE | COMPAT_FLAG),
 # endif /* SECCOMP_AUDIT_ARCH_COMPAT2 */
 # ifdef SECCOMP_AUDIT_ARCH_COMPAT
 	/* Match on the compat architecture or jump to the native arch check. */
-	BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, SECCOMP_AUDIT_ARCH_COMPAT, 0, 4),
+/*06*/	BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, SECCOMP_AUDIT_ARCH_COMPAT, 0, 4),
 	/* Load syscall number into the accumulator. */
-	BPF_STMT(BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, nr)),
+/*07*/	BPF_STMT(BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, nr)),
 	/* Jump to trace for compat execve(2)/execveat(2), else allow. */
-	BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, COMPAT_execve, 1, 0),
-	BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, COMPAT_execveat, 0, 9),
+/*08*/	BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, COMPAT_execve, 1, 0),
+/*09*/	BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, COMPAT_execveat, 0, 9),
 	/* Trace execve(2)/execveat(2) syscalls (w/ compat flag) */
-	BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_TRACE | COMPAT_FLAG),
+/*10*/	BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_TRACE | COMPAT_FLAG),
 # endif /* SECCOMP_AUDIT_ARCH_COMPAT */
 	/* Kill the process unless the (native) architecture matches. */
-	BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, SECCOMP_AUDIT_ARCH, 1, 0),
-	BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS),
+/*11*/	BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, SECCOMP_AUDIT_ARCH, 1, 0),
+/*12*/	BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS),
 	/* Load syscall number into the accumulator. */
-	BPF_STMT(BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, nr)),
+/*13*/	BPF_STMT(BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, nr)),
 	/* Jump to trace for execve(2)/execveat(2), else allow. */
 # ifdef X32_execve
-	BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, X32_execve, 3, 0),
-	BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, X32_execveat, 2, 0),
+/*14*/	BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, X32_execve, 3, 0),
+/*15*/	BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, X32_execveat, 2, 0),
 # else
 	/* No x32 support, check native system call numbers. */
-	BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_execve, 3, 0),
-	BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_execveat, 2, 3),
+/*14*/	BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_execve, 3, 0),
+/*15*/	BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_execveat, 2, 3),
 # endif /* X32_execve */
 	/* If no x32 support, these two instructions are never reached. */
-	BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_execve, 1, 0),
-	BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_execveat, 0, 1),
+/*16*/	BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_execve, 1, 0),
+/*17*/	BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_execveat, 0, 1),
 	/* Trace execve(2)/execveat(2) syscalls */
-	BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_TRACE),
+/*18*/	BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_TRACE),
 	/* Allow non-matching syscalls */
-	BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_ALLOW)
+/*19*/	BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_ALLOW)
     };
     const struct sock_fprog exec_fprog = {
 	nitems(exec_filter),
