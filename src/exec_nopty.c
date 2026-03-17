@@ -647,7 +647,7 @@ exec_nopty(struct command_details *details,
 	    close(io_pipe[STDERR_FILENO][0]);
 	    close(io_pipe[STDERR_FILENO][1]);
 	}
-	exec_cmnd(details, &oset, intercept_sv[1], errpipe[1]);
+	exec_cmnd(details, intercept_sv[1], errpipe[1]);
 	while (write(errpipe[1], &errno, sizeof(int)) == -1) {
 	    if (errno != EINTR)
 		break;

@@ -188,7 +188,7 @@ main(int argc, char *argv[])
 	if (!set_exec_filter())
 	    _exit(EXIT_FAILURE);
 
-	/* Child waits until tracer seizes control and sends SIGUSR1. */
+	/* Child waits until tracer seizes control and sends a message. */
 	close(intercept_sv[0]);
 	recv(intercept_sv[1], &ch, sizeof(ch), 0);
 

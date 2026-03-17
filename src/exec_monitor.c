@@ -345,8 +345,8 @@ mon_backchannel_cb(int fd, int what, void *v)
  * Returns only if execve() fails.
  */
 static void
-exec_cmnd_pty(struct command_details *details, sigset_t *mask,
-    bool foreground, int intercept_fd, int errfd)
+exec_cmnd_pty(struct command_details *details, bool foreground,
+    int intercept_fd, int errfd)
 {
     volatile pid_t self = getpid();
     debug_decl(exec_cmnd_pty, SUDO_DEBUG_EXEC);
@@ -396,7 +396,7 @@ exec_cmnd_pty(struct command_details *details, sigset_t *mask,
     /* Execute command; only returns on error. */
     sudo_debug_printf(SUDO_DEBUG_INFO, "executing %s in the %s",
 	details->command, foreground ? "foreground" : "background");
-    exec_cmnd(details, mask, intercept_fd, errfd);
+    exec_cmnd(details, intercept_fd, errfd);
 
     debug_return;
 }
@@ -542,12 +542,11 @@ pty_make_controlling(const char *follower)
  * resets signal handlers and forks a child to call exec_cmnd_pty().
  * Waits for status changes from the command and relays them to the
  * parent and relays signals from the parent to the command.
- * Must be called with signals blocked and the old signal mask in oset.
  * Returns an error if fork(2) fails, else calls _exit(2).
  */
 int
-exec_monitor(struct command_details *details, sigset_t *oset,
-    bool foreground, int backchannel, int intercept_fd)
+exec_monitor(struct command_details *details, bool foreground,
+    int backchannel, int intercept_fd)
 {
     struct monitor_closure mc;
     struct command_status cstat;
@@ -622,9 +621,6 @@ exec_monitor(struct command_details *details, sigset_t *oset,
      */
     init_exec_events_monitor(&mc, errsock[0]);
 
-    /* Restore signal mask now that signal handlers are setup. */
-    sigprocmask(SIG_SETMASK, oset, NULL);
-
     mc.cmnd_pid = sudo_debug_fork();
     switch (mc.cmnd_pid) {
     case -1:
@@ -641,7 +637,7 @@ exec_monitor(struct command_details *details, sigset_t *oset,
 	close(backchannel);
 	close(errsock[0]);
 	/* setup tty and exec command */
-	exec_cmnd_pty(details, oset, foreground, intercept_fd, errsock[1]);
+	exec_cmnd_pty(details, foreground, intercept_fd, errsock[1]);
 	if (send(errsock[1], &errno, sizeof(int), 0) == -1)
 	    sudo_warn(U_("unable to execute %s"), details->command);
 	_exit(EXIT_FAILURE);

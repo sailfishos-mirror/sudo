@@ -1375,7 +1375,7 @@ exec_pty(struct command_details *details,
 	 * from /dev/tty.  In this case, we rely on the command receiving
 	 * SIGTTOU or SIGTTIN when it needs access to the controlling tty.
 	 */                                                              
-	exec_monitor(details, &oset, cmnd_foreground, sv[1], intercept_sv[1]);
+	exec_monitor(details, cmnd_foreground, sv[1], intercept_sv[1]);
 	cstat->type = CMD_ERRNO;
 	cstat->val = errno;
 	if (send(sv[1], cstat, sizeof(*cstat), 0) == -1) {

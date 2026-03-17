@@ -176,7 +176,7 @@ union sudo_token_un {
 
 /* exec.c */
 struct stat;
-void exec_cmnd(struct command_details *details, sigset_t *mask, int intercept_fd, int errfd);
+void exec_cmnd(struct command_details *details, int intercept_fd, int errfd);
 void terminate_command(pid_t pid, bool use_pgrp);
 bool sudo_terminated(struct command_status *cstat);
 void free_exec_closure(struct exec_closure *ec);
@@ -215,7 +215,7 @@ bool exec_pty(struct command_details *details, const struct user_details *user_d
 extern int io_fds[6];
 
 /* exec_monitor.c */
-int exec_monitor(struct command_details *details, sigset_t *omask, bool foreground, int backchannel, int intercept_fd);
+int exec_monitor(struct command_details *details, bool foreground, int backchannel, int intercept_fd);
 
 /* utmp.c */
 bool utmp_login(const char *from_line, const char *to_line, int ttyfd,
