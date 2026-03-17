@@ -620,9 +620,10 @@ exec_monitor(struct command_details *details, sigset_t *oset,
      * Create new event base and register read events for the
      * signal pipe, error pipe, and backchannel.
      */
-     init_exec_events_monitor(&mc, errsock[0]);
-     /* Restore signal mask now that signal handlers are setup. */
-     sigprocmask(SIG_SETMASK, oset, NULL);
+    init_exec_events_monitor(&mc, errsock[0]);
+
+    /* Restore signal mask now that signal handlers are setup. */
+    sigprocmask(SIG_SETMASK, oset, NULL);
 
     mc.cmnd_pid = sudo_debug_fork();
     switch (mc.cmnd_pid) {

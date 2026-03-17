@@ -19,6 +19,7 @@
 #include <config.h>
 
 #include <sys/resource.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <stdlib.h>
 #include <string.h>
@@ -42,14 +43,6 @@
 #include <sudo_exec.h>
 #include <sudo_plugin.h>
 #include <sudo_plugin_int.h>
-
-#ifdef HAVE_PTRACE_INTERCEPT
-static void
-handler(int signo)
-{
-    /* just return */
-}
-#endif /* HAVE_PTRACE_INTERCEPT */
 
 static void
 close_fds(struct command_details *details, int errfd, int intercept_fd)
@@ -261,23 +254,11 @@ exec_cmnd(struct command_details *details, sigset_t *mask,
 
 #ifdef HAVE_PTRACE_INTERCEPT
     if (ISSET(details->flags, CD_USE_PTRACE)) {
-	struct sigaction sa;
-	sigset_t set;
+	struct command_status cstat;
 
-	/* Tracer will send us SIGUSR1 when it is time to proceed. */
-	memset(&sa, 0, sizeof(sa));
-	sigemptyset(&sa.sa_mask);
-	sa.sa_flags = SA_RESTART;
-	sa.sa_handler = handler;
-	if (sudo_sigaction(SIGUSR1, &sa, NULL) != 0) {
-	    sudo_warn(U_("unable to set handler for signal %d"),
-		SIGUSR1);
-	}
-
-	/* Suspend child until tracer seizes control and sends SIGUSR1. */
-	sigfillset(&set);
-	sigdelset(&set, SIGUSR1);
-	sigsuspend(&set);
+	/* Wait for tracer to seizes control and notify us. */
+	if (recv(intercept_fd, &cstat, sizeof(cstat), MSG_WAITALL) == -1)
+	    sudo_warn("%s", U_("unable to receive message from parent"));
     }
 #endif /* HAVE_PTRACE_INTERCEPT */
 

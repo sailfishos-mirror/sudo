@@ -16,6 +16,7 @@
 
 #include <config.h>
 
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/uio.h>
@@ -1228,11 +1229,12 @@ set_exec_filter(void)
  * being traced and -1 on error.
  */
 int
-exec_ptrace_seize(pid_t child)
+exec_ptrace_seize(pid_t child, int intercept_fd)
 {
     const long ptrace_opts = PTRACE_O_TRACESECCOMP|PTRACE_O_TRACECLONE|
 			     PTRACE_O_TRACEFORK|PTRACE_O_TRACEVFORK|
 			     PTRACE_O_TRACEEXEC;
+    struct command_status cstat;
     int ret = -1;
     int status;
     debug_decl(exec_ptrace_seize, SUDO_DEBUG_EXEC);
@@ -1264,11 +1266,15 @@ exec_ptrace_seize(pid_t child)
 	ret = false;
     }
 
-    /* The child is suspended waiting for SIGUSR1, wake it up. */
-    if (kill(child, SIGUSR1) == -1) {
-	sudo_warn("kill(%d, SIGUSR1)", (int)child);
+    /* The child is waiting on intercept_fd, wake it up. */
+    cstat.type = CMD_SIGNO;
+    cstat.val = 0;
+    if (send(intercept_fd, &cstat, sizeof(cstat), 0) == -1) {
+	sudo_warn("%s", U_("unable to wake up child"));
 	goto done;
     }
+
+    /* If PTRACE_SEIZE failed, we are done. */
     if (!ret)
 	goto done;
 
@@ -2100,7 +2106,7 @@ exec_ptrace_stopped(pid_t pid, int status, void *intercept)
 
 /* STUB */
 int
-exec_ptrace_seize(pid_t child)
+exec_ptrace_seize(pid_t child, int intercept_fd)
 {
     return true;
 }

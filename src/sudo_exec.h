@@ -76,6 +76,7 @@ struct exec_closure {
     pid_t monitor_pid;
     pid_t cmnd_pid;
     pid_t ppgrp;
+    int intercept_fd;
     int rows;
     int cols;
     bool foreground;
@@ -228,7 +229,7 @@ char **sudo_preload_dso_mmap(char *const envp[], const char *dso_file, int inter
 /* exec_ptrace.c */
 bool exec_ptrace_stopped(pid_t pid, int status, void *intercept);
 bool set_exec_filter(void);
-int exec_ptrace_seize(pid_t child);
+int exec_ptrace_seize(pid_t child, int intercept_fd);
 
 /* suspend_parent.c */
 void sudo_suspend_parent(int signo, pid_t my_pid, pid_t my_pgrp, pid_t cmnd_pid, void *closure, void (*callback)(void *, int));

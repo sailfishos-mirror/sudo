@@ -40,7 +40,10 @@ handler(int signo)
 void
 intercept_closure_reset(struct intercept_closure *closure)
 {
+    /* Preserve closure->details, zero everything else. */
+    const struct command_details *details = closure->details;
     memset(closure, 0, sizeof(*closure));
+    closure->details = details;
 }
 
 bool
@@ -106,6 +109,8 @@ main(int argc, char *argv[])
     struct sudo_debug_file debug_file;
     const char *base, *shell = _PATH_SUDO_BSHELL;
     struct intercept_closure closure = { 0 };
+    struct command_details details = { 0 };
+    int intercept_sv[2];
     const char *errstr;
     sigset_t blocked, empty;
     struct sigaction sa;
@@ -145,20 +150,29 @@ main(int argc, char *argv[])
     if (sudo_debug_instance == SUDO_DEBUG_INSTANCE_ERROR)
 	return EXIT_FAILURE;
 
-    /* Block SIGCHLD and SIGUSR during critical section. */
+    /* Use socketpair to coordinate between parent and child. */
+    if (socketpair(PF_UNIX, SOCK_STREAM, 0, intercept_sv) == -1)
+	sudo_fatal("%s", U_("unable to create sockets"));
+    if (fcntl(intercept_sv[0], F_SETFD, FD_CLOEXEC) == -1 ||
+	    fcntl(intercept_sv[1], F_SETFD, FD_CLOEXEC) == -1) {
+	sudo_fatal("%s", U_("unable to create sockets"));
+    }
+
+    /* Block SIGCHLD during critical section. */
     sigemptyset(&empty);
     sigemptyset(&blocked);
     sigaddset(&blocked, SIGCHLD);
-    sigaddset(&blocked, SIGUSR1);
     sigprocmask(SIG_BLOCK, &blocked, NULL);
 
-    /* Signal handler sets a flag for SIGCHLD, nothing for SIGUSR1. */
+    /* Avoid NULL deref of closure.details. */
+    closure.details = &details;
+
+    /* Signal handler sets a flag for SIGCHLD. */
     memset(&sa, 0, sizeof(sa));
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = SA_RESTART;
     sa.sa_handler = handler;
     sigaction(SIGCHLD, &sa, NULL);
-    sigaction(SIGUSR1, &sa, NULL);
 
     /* Fork a shell. */
     my_pid = getpid();
@@ -174,13 +188,16 @@ main(int argc, char *argv[])
 	if (!set_exec_filter())
 	    _exit(EXIT_FAILURE);
 
-	/* Suspend child until tracer seizes control and sends SIGUSR1. */
-	sigsuspend(&empty);
+	/* Child waits until tracer seizes control and sends SIGUSR1. */
+	close(intercept_sv[0]);
+	recv(intercept_sv[1], &ch, sizeof(ch), 0);
+
 	execl(shell, base, NULL);
 	sudo_fatal("execl");
     default:
 	/* Parent attaches to child and allows it to continue. */
-	if (exec_ptrace_seize(child) == -1)
+	close(intercept_sv[1]);
+	if (exec_ptrace_seize(child, intercept_sv[0]) == -1)
 	    return EXIT_FAILURE;
 	break;
     }

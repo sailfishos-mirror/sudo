@@ -716,7 +716,7 @@ backchannel_cb(int fd, int what, void *v)
 		ec->details->command, (int)ec->cmnd_pid);
 	    if (ISSET(ec->details->flags, CD_USE_PTRACE)) {
 		/* Try to seize control of the command using ptrace(2). */
-		int rc = exec_ptrace_seize(ec->cmnd_pid);
+		const int rc = exec_ptrace_seize(ec->cmnd_pid, ec->intercept_fd);
 		if (rc == 0) {
 		    /* There is another tracer present. */
 		    CLR(ec->details->flags, CD_INTERCEPT|CD_LOG_SUBCMDS|CD_USE_PTRACE);
@@ -974,6 +974,7 @@ init_exec_closure(struct exec_closure *ec, struct command_status *cstat,
     ec->cmnd_pid = -1;
     ec->cstat = cstat;
     ec->details = details;
+    ec->intercept_fd = -1;
     ec->rows = user_details->ts_rows;
     ec->cols = user_details->ts_cols;
 
@@ -1135,13 +1136,19 @@ exec_pty(struct command_details *details,
 	sudo_fatal("%s", U_("unable to create sockets"));
 
     if (ISSET(details->flags, CD_INTERCEPT|CD_LOG_SUBCMDS)) {
-	if (!ISSET(details->flags, CD_USE_PTRACE)) {
-	    /*
-	     * Allocate a socketpair for communicating with sudo_intercept.so.
-	     * This must be inherited across exec, hence no FD_CLOEXEC.
-	     */
-	    if (socketpair(PF_UNIX, SOCK_STREAM, 0, intercept_sv) == -1)
+	/*
+	 * Allocate a socketpair for communicating with sudo_intercept.so.
+	 * This must be inherited across exec for the non-ptrace case.
+	 */
+	if (socketpair(PF_UNIX, SOCK_STREAM, 0, intercept_sv) == -1)
+	    sudo_fatal("%s", U_("unable to create sockets"));
+        if (ISSET(details->flags, CD_USE_PTRACE)) {
+	    if (fcntl(intercept_sv[0], F_SETFD, FD_CLOEXEC) == -1 ||
+		    fcntl(intercept_sv[1], F_SETFD, FD_CLOEXEC) == -1) {
 		sudo_fatal("%s", U_("unable to create sockets"));
+	    }
+	    /* Used to wake up command as it waits for parent to seize it. */
+	    ec->intercept_fd = intercept_sv[0];
 	}
     }
 
@@ -1337,8 +1344,10 @@ exec_pty(struct command_details *details,
 
     /* Allocate and set signal events and the backchannel event. */
     init_exec_events(ec, evbase, sv[0]);
+
     /* Restore signal mask now that signal handlers are setup. */
     sigprocmask(SIG_SETMASK, &oset, NULL);
+
     ec->monitor_pid = sudo_debug_fork();
     switch (ec->monitor_pid) {
     case -1:
