@@ -1235,8 +1235,7 @@ exec_ptrace_seize(pid_t child, int intercept_fd)
 			     PTRACE_O_TRACEFORK|PTRACE_O_TRACEVFORK|
 			     PTRACE_O_TRACEEXEC;
     struct command_status cstat;
-    int ret = -1;
-    int status;
+    int ret = true;
     debug_decl(exec_ptrace_seize, SUDO_DEBUG_EXEC);
 
 #ifdef HAVE_PROCESS_VM_READV
@@ -1258,6 +1257,7 @@ exec_ptrace_seize(pid_t child, int intercept_fd)
 	if (errno != EPERM) {
 	    sudo_warn("%s: ptrace(PTRACE_SEIZE, %d, NULL, 0x%lx)",
 		__func__, (int)child, ptrace_opts);
+	    ret = -1;
 	    goto done;
 	}
 	sudo_debug_printf(SUDO_DEBUG_WARN,
@@ -1271,33 +1271,9 @@ exec_ptrace_seize(pid_t child, int intercept_fd)
     cstat.val = 0;
     if (send(intercept_fd, &cstat, sizeof(cstat), 0) == -1) {
 	sudo_warn("%s", U_("unable to wake up child"));
+	ret = -1;
 	goto done;
     }
-
-    /* If PTRACE_SEIZE failed, we are done. */
-    if (!ret)
-	goto done;
-
-    /* Wait for the child to enter trace stop and continue it. */
-    for (;;) {
-	if (waitpid(child, &status, __WALL) != -1)
-	    break;
-	if (errno == EINTR)
-	    continue;
-	sudo_warn(U_("%s: %s"), __func__, "waitpid");
-	goto done;
-    }
-    if (!WIFSTOPPED(status)) {
-	sudo_warnx(U_("process %d exited unexpectedly"), (int)child);
-	goto done;
-    }
-    if (ptrace(PTRACE_CONT, child, NULL, (void *)SIGUSR1) == -1) {
-	sudo_warn("%s: ptrace(PTRACE_CONT, %d, NULL, SIGUSR1)",
-	    __func__, (int)child);
-	goto done;
-    }
-
-    ret = true;
 
 done:
     debug_return_int(ret);
