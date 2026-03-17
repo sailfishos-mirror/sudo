@@ -326,10 +326,8 @@ log_server_exit(int status_type, int status)
 	int exit_status = 0, error = 0;
 
 	if (status_type == SUDO_PLUGIN_WAIT_STATUS) {
-	    if (WIFEXITED(status))
-		exit_status = WEXITSTATUS(status);
-	    else
-		exit_status = WTERMSIG(status) | 128;
+	    /* Status from wait(2) et al. */
+	    exit_status = status;
 	} else {
 	    /* Must be errno. */
 	    error = status;
