@@ -390,7 +390,6 @@ cvtsudoers_make_grlist_item(const struct passwd *pw, char * const *unused1)
     struct cache_item_grlist *grlitem;
     struct sudoers_string *s;
     struct group_list *grlist;
-    const size_t groupname_len = sudo_login_name_max();
     debug_decl(cvtsudoers_make_grlist_item, SUDOERS_DEBUG_NSS);
 
     /*
@@ -401,18 +400,17 @@ cvtsudoers_make_grlist_item(const struct passwd *pw, char * const *unused1)
 	debug_return_ptr(&grlist_item->cache);
     }
 
-    /* Count number of groups in the filter. */
-    ngroups = 0;
-    STAILQ_FOREACH(s, &filters->groups, entries) {
-	ngroups++;
-    }
-
     /* Allocate in one big chunk for easy freeing. */
     nsize = strlen(pw->pw_name) + 1;
     total = sizeof(*grlitem) + nsize;
-    total += groupname_len * ngroups;
 
-again:
+    /* Count groups in the filter and add space for each one. */
+    ngroups = 0;
+    STAILQ_FOREACH(s, &filters->groups, entries) {
+	total += sizeof(char *) + strlen(s->str) + 1;
+	ngroups++;
+    }
+
     if ((grlitem = calloc(1, total)) == NULL) {
 	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
 	    "unable to allocate memory");
@@ -451,9 +449,9 @@ again:
 	}
 	len = strlen(s->str) + 1;
 	if ((size_t)(cp - (char *)grlitem) + len > total) {
-	    total += len + groupname_len;
+	    sudo_warnx(U_("internal error, %s overflow"), __func__);
 	    free(grlitem);
-	    goto again;
+	    debug_return_ptr(NULL);
 	}
 	memcpy(cp, s->str, len);
 	grlist->groups[ngroups++] = cp;
