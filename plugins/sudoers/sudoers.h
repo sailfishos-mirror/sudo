@@ -320,6 +320,9 @@ int find_path(const char *infile, char **outfile, struct stat *sbp,
     const char *path, const char *runchroot, bool ignore_dot,
     char * const *allowlist);
 
+/* rationalize.c */
+char *rationalize_path(char *cmnd);
+
 /* resolve_cmnd.c */
 int resolve_cmnd(struct sudoers_context *ctx, const char *infile,
     char **outfile, const char *path, const char *runchroot);

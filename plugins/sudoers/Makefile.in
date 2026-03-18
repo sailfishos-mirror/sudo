@@ -1,7 +1,7 @@
 #
 # SPDX-License-Identifier: ISC
 #
-# Copyright (c) 1996, 1998-2005, 2007-2024
+# Copyright (c) 1996, 1998-2005, 2007-2026
 #       Todd C. Miller <Todd.Miller@sudo.ws>
 #
 # Permission to use, copy, modify, and distribute this software for any
@@ -157,9 +157,9 @@ PROGS = sudoers.la visudo sudoreplay cvtsudoers testsudoers tsdump
 
 # Regression tests
 TEST_PROGS = check_addr check_digest check_editor check_env_pattern \
-	     check_exptilde check_fill check_gentime \
-	     check_iolog_plugin check_serialize_list \
-	     check_starttime check_unesc @SUDOERS_TEST_PROGS@
+	     check_exptilde check_fill check_gentime check_iolog_plugin \
+	     check_rationalize check_serialize_list check_starttime \
+	     check_unesc @SUDOERS_TEST_PROGS@
 TEST_VERBOSE =
 HARNESS = $(SHELL) regress/harness $(TEST_VERBOSE)
 
@@ -189,16 +189,16 @@ SUDOERS_OBJS = $(AUTH_OBJS) audit.lo boottime.lo check.lo check_util.lo \
                file.lo find_path.lo fmtsudoers.lo gc.lo goodpath.lo \
                group_plugin.lo interfaces.lo iolog.lo iolog_path_escapes.lo \
                locale.lo log_client.lo logging.lo lookup.lo policy.lo \
-	       prompt.lo serialize_list.lo set_perms.lo sethost.lo \
-	       starttime.lo strlcpy_unesc.lo strvec_join.lo sudo_nss.lo \
-	       sudoers.lo sudoers_cb.lo sudoers_ctx_free.lo timestamp.lo \
-	       unesc_str.lo @SUDOERS_OBJS@
+	       prompt.lo rationalize.lo serialize_list.lo set_perms.lo \
+	       sethost.lo starttime.lo strlcpy_unesc.lo strvec_join.lo \
+	       sudo_nss.lo sudoers.lo sudoers_cb.lo sudoers_ctx_free.lo \
+	       timestamp.lo unesc_str.lo @SUDOERS_OBJS@
 
 SUDOERS_IOBJS = $(SUDOERS_OBJS:.lo=.i)
 
 VISUDO_OBJS = check_aliases.o editor.lo find_path.lo gc.lo goodpath.lo \
-	      locale.lo sethost.lo stubs.o sudo_printf.o sudoers_ctx_free.lo \
-	      visudo.o visudo_cb.o
+	      locale.lo rationalize.lo sethost.lo stubs.o sudo_printf.o \
+	      sudoers_ctx_free.lo visudo.o visudo_cb.o
 
 VISUDO_IOBJS = sudo_printf.i visudo.i
 
@@ -246,6 +246,8 @@ CHECK_GENTIME_OBJS = check_gentime.o gentime.lo sudoers_debug.lo
 CHECK_IOLOG_PLUGIN_OBJS = check_iolog_plugin.o iolog.lo log_client.lo \
 			  locale.lo pwutil.lo pwutil_impl.lo redblack.lo \
 			  strlist.lo sudoers_debug.lo unesc_str.lo
+
+CHECK_RATIONALIZE_OBJS = check_rationalize.lo rationalize.lo sudoers_debug.lo
 
 CHECK_SYMBOLS_OBJS = check_symbols.o
 
@@ -393,6 +395,9 @@ check_gentime: $(CHECK_GENTIME_OBJS) $(LIBUTIL)
 
 check_iolog_plugin: $(CHECK_IOLOG_PLUGIN_OBJS) $(LIBUTIL) $(LIBIOLOG) $(LIBLOGSRV)
 	$(LIBTOOL) $(LTFLAGS) --mode=link $(CC) -o $@ $(CHECK_IOLOG_PLUGIN_OBJS) $(LDFLAGS) $(ASAN_LDFLAGS) $(PIE_LDFLAGS) $(HARDENING_LDFLAGS) $(LIBIOLOG) $(LIBLOGSRV) @LIBTLS@
+
+check_rationalize: $(CHECK_RATIONALIZE_OBJS) $(LIBUTIL)
+	$(LIBTOOL) $(LTFLAGS) --mode=link $(CC) -o $@ $(CHECK_RATIONALIZE_OBJS) $(LDFLAGS) $(ASAN_LDFLAGS) $(PIE_LDFLAGS) $(HARDENING_LDFLAGS) $(LIBS)
 
 check_serialize_list: $(CHECK_SERIALIZE_LIST_OBJS) $(LIBUTIL)
 	$(LIBTOOL) $(LTFLAGS) --mode=link $(CC) -o $@ $(CHECK_SERIALIZE_LIST_OBJS) $(LDFLAGS) $(ASAN_LDFLAGS) $(PIE_LDFLAGS) $(HARDENING_LDFLAGS) $(LIBS)
@@ -662,6 +667,7 @@ check: $(TEST_PROGS) visudo testsudoers cvtsudoers check-fuzzer
 	    ./check_gentime $(TEST_VERBOSE) || rval=`expr $$rval + $$?`; \
 	    mkdir -p regress/iolog_plugin; \
 	    ./check_iolog_plugin $(TEST_VERBOSE) regress/iolog_plugin/iolog || rval=`expr $$rval + $$?`; \
+	    ./check_rationalize $(TEST_VERBOSE) || rval=`expr $$rval + $$?`; \
 	    ./check_serialize_list $(TEST_VERBOSE) || rval=`expr $$rval + $$?`; \
 	    ./check_starttime $(TEST_VERBOSE) || rval=`expr $$rval + $$?`; \
 	    ./check_unesc $(TEST_VERBOSE) || rval=`expr $$rval + $$?`; \
@@ -1107,6 +1113,32 @@ check_iolog_plugin.i: $(srcdir)/regress/iolog_plugin/check_iolog_plugin.c \
 	$(CPP) $(CPPFLAGS) $(srcdir)/regress/iolog_plugin/check_iolog_plugin.c > $@
 check_iolog_plugin.plog: check_iolog_plugin.i
 	rm -f $@; pvs-studio --cfg $(PVS_CFG) --source-file $(srcdir)/regress/iolog_plugin/check_iolog_plugin.c --i-file check_iolog_plugin.i --output-file $@
+check_rationalize.lo: $(srcdir)/regress/rationalize/check_rationalize.c \
+                      $(devdir)/def_data.h $(incdir)/compat/stdbool.h \
+                      $(incdir)/sudo_compat.h $(incdir)/sudo_conf.h \
+                      $(incdir)/sudo_debug.h $(incdir)/sudo_eventlog.h \
+                      $(incdir)/sudo_fatal.h $(incdir)/sudo_gettext.h \
+                      $(incdir)/sudo_plugin.h $(incdir)/sudo_queue.h \
+                      $(incdir)/sudo_util.h $(srcdir)/defaults.h \
+                      $(srcdir)/logging.h $(srcdir)/parse.h \
+                      $(srcdir)/sudo_nss.h $(srcdir)/sudoers.h \
+                      $(srcdir)/sudoers_debug.h $(top_builddir)/config.h \
+                      $(top_builddir)/pathnames.h
+	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $(srcdir)/regress/rationalize/check_rationalize.c
+check_rationalize.i: $(srcdir)/regress/rationalize/check_rationalize.c \
+                      $(devdir)/def_data.h $(incdir)/compat/stdbool.h \
+                      $(incdir)/sudo_compat.h $(incdir)/sudo_conf.h \
+                      $(incdir)/sudo_debug.h $(incdir)/sudo_eventlog.h \
+                      $(incdir)/sudo_fatal.h $(incdir)/sudo_gettext.h \
+                      $(incdir)/sudo_plugin.h $(incdir)/sudo_queue.h \
+                      $(incdir)/sudo_util.h $(srcdir)/defaults.h \
+                      $(srcdir)/logging.h $(srcdir)/parse.h \
+                      $(srcdir)/sudo_nss.h $(srcdir)/sudoers.h \
+                      $(srcdir)/sudoers_debug.h $(top_builddir)/config.h \
+                      $(top_builddir)/pathnames.h
+	$(CPP) $(CPPFLAGS) $(srcdir)/regress/rationalize/check_rationalize.c > $@
+check_rationalize.plog: check_rationalize.i
+	rm -f $@; pvs-studio --cfg $(PVS_CFG) --source-file $(srcdir)/regress/rationalize/check_rationalize.c --i-file check_rationalize.i --output-file $@
 check_serialize_list.lo: \
                          $(srcdir)/regress/serialize_list/check_serialize_list.c \
                          $(devdir)/def_data.h $(incdir)/compat/stdbool.h \
@@ -2525,6 +2557,30 @@ pwutil_impl.i: $(srcdir)/pwutil_impl.c $(devdir)/def_data.h \
 	$(CPP) $(CPPFLAGS) $(srcdir)/pwutil_impl.c > $@
 pwutil_impl.plog: pwutil_impl.i
 	rm -f $@; pvs-studio --cfg $(PVS_CFG) --source-file $(srcdir)/pwutil_impl.c --i-file pwutil_impl.i --output-file $@
+rationalize.lo: $(srcdir)/rationalize.c $(devdir)/def_data.h \
+                $(incdir)/compat/stdbool.h $(incdir)/sudo_compat.h \
+                $(incdir)/sudo_conf.h $(incdir)/sudo_debug.h \
+                $(incdir)/sudo_eventlog.h $(incdir)/sudo_fatal.h \
+                $(incdir)/sudo_gettext.h $(incdir)/sudo_plugin.h \
+                $(incdir)/sudo_queue.h $(incdir)/sudo_util.h \
+                $(srcdir)/defaults.h $(srcdir)/logging.h $(srcdir)/parse.h \
+                $(srcdir)/sudo_nss.h $(srcdir)/sudoers.h \
+                $(srcdir)/sudoers_debug.h $(top_builddir)/config.h \
+                $(top_builddir)/pathnames.h
+	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $(srcdir)/rationalize.c
+rationalize.i: $(srcdir)/rationalize.c $(devdir)/def_data.h \
+                $(incdir)/compat/stdbool.h $(incdir)/sudo_compat.h \
+                $(incdir)/sudo_conf.h $(incdir)/sudo_debug.h \
+                $(incdir)/sudo_eventlog.h $(incdir)/sudo_fatal.h \
+                $(incdir)/sudo_gettext.h $(incdir)/sudo_plugin.h \
+                $(incdir)/sudo_queue.h $(incdir)/sudo_util.h \
+                $(srcdir)/defaults.h $(srcdir)/logging.h $(srcdir)/parse.h \
+                $(srcdir)/sudo_nss.h $(srcdir)/sudoers.h \
+                $(srcdir)/sudoers_debug.h $(top_builddir)/config.h \
+                $(top_builddir)/pathnames.h
+	$(CPP) $(CPPFLAGS) $(srcdir)/rationalize.c > $@
+rationalize.plog: rationalize.i
+	rm -f $@; pvs-studio --cfg $(PVS_CFG) --source-file $(srcdir)/rationalize.c --i-file rationalize.i --output-file $@
 redblack.lo: $(srcdir)/redblack.c $(devdir)/def_data.h \
              $(incdir)/compat/stdbool.h $(incdir)/sudo_compat.h \
              $(incdir)/sudo_conf.h $(incdir)/sudo_debug.h \

@@ -770,6 +770,7 @@ plugins/sudoers/prompt.c
 plugins/sudoers/pwutil.c
 plugins/sudoers/pwutil.h
 plugins/sudoers/pwutil_impl.c
+plugins/sudoers/rationalize.c
 plugins/sudoers/redblack.c
 plugins/sudoers/redblack.h
 plugins/sudoers/regress/check_symbols/check_symbols.c
@@ -895,6 +896,7 @@ plugins/sudoers/regress/parser/check_digest.c
 plugins/sudoers/regress/parser/check_digest.out.ok
 plugins/sudoers/regress/parser/check_fill.c
 plugins/sudoers/regress/parser/check_gentime.c
+plugins/sudoers/regress/rationalize/check_rationalize.c
 plugins/sudoers/regress/serialize_list/check_serialize_list.c
 plugins/sudoers/regress/starttime/check_starttime.c
 plugins/sudoers/regress/sudoers/test1.in
