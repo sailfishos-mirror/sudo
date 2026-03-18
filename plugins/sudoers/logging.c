@@ -702,7 +702,7 @@ vlog_warning(const struct sudoers_context *ctx, unsigned int flags,
 {
     struct eventlog evlog;
     const char *errstr = NULL;
-    char *message;
+    char *message = NULL;
     bool ret = true;
     int len, oldlocale;
     int evl_flags = 0;
@@ -795,6 +795,7 @@ vlog_warning(const struct sudoers_context *ctx, unsigned int flags,
     }
 
 done:
+    free(message);
     va_end(ap2);
     sudoers_setlocale(oldlocale, NULL);
 
@@ -945,6 +946,7 @@ log_parse_error(const struct sudoers_context *ctx, const char *file,
 	len = asprintf(&message, _("%s: %s"), file, errstr);
     }
     if (len != -1) {
+	/* journal_parse_error() takes ownership of copy on success. */
 	if (!journal_parse_error(message)) {
 	    free(message);
 	    ret = false;
