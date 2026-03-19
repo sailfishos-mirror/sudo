@@ -951,9 +951,10 @@ ptrace_write_vec(pid_t pid, struct sudo_ptrace_regs *regs, char **vec,
 /*
  * Read a link from /proc/PID and store the result in buf.
  * Used to read the cwd and exe links in /proc/PID.
- * Returns true on success, else false.
+ * Returns the number of bytes written to buf on success, else -1.
+ * Note: name and buf _may_ overlap.
  */
-static bool
+static ssize_t
 proc_read_link(pid_t pid, const char *name, char *buf, size_t bufsize)
 {
     ssize_t len;
@@ -962,14 +963,14 @@ proc_read_link(pid_t pid, const char *name, char *buf, size_t bufsize)
 
     len = snprintf(path, sizeof(path), "/proc/%d/%s", (int)pid, name);
     if (len > 0 && len < ssizeof(path)) {
-	len = readlink(path, buf, bufsize - 1);
-	if (len != -1) {
+	len = readlink(path, buf, bufsize);
+	if (len != -1 && (size_t)len != bufsize) {
 	    /* readlink(2) does not add the NUL for us. */
 	    buf[len] = '\0';
-	    debug_return_bool(true);
+	    debug_return_ssize_t(len + 1);
 	}
     }
-    debug_return_bool(false);
+    debug_return_ssize_t(-1);
 }
 
 /*
@@ -1011,6 +1012,20 @@ get_execve_info(pid_t pid, struct sudo_ptrace_regs *regs, char **pathname_out,
 		"unable to read execve pathname for process %d", (int)pid);
 	    goto bad;
 	}
+
+	/* For fexecve() the path may be in the form /proc/self/fd/N */
+	if (strncmp(argbuf, "/proc/self/fd/", 14) == 0) {
+	    const char *errstr;
+	    const char *fdstr = argbuf + 14;
+	    (void)sudo_strtonum(fdstr, 0, INT_MAX, &errstr);
+	    if (errstr == NULL) {
+		/* Rewrite argbuf with link target (if it is one). */
+		ssize_t len = proc_read_link(pid, fdstr, argbuf, bufsize);
+		if (len != -1)
+		    nread = len;
+	    }
+	}
+
 	/* Defer setting pathname until after all reallocations are done. */
 	off = (size_t)nread;
     }
@@ -1626,7 +1641,7 @@ ptrace_verify_post_exec(pid_t pid, struct sudo_ptrace_regs *regs,
     }
 
     /* Get the executable path. */
-    if (!proc_read_link(pid, "exe", pathname, sizeof(pathname))) {
+    if (proc_read_link(pid, "exe", pathname, sizeof(pathname)) == -1) {
 	/* Missing /proc file system is not a fatal error. */
 	sudo_debug_printf(SUDO_DEBUG_ERROR, "%s: unable to read /proc/%d/exe",
 	    __func__, (int)pid);
@@ -1768,7 +1783,7 @@ ptrace_intercept_execve(pid_t pid, struct intercept_closure *closure)
     }
 
     /* Get the current working directory and execve info. */
-    if (!proc_read_link(pid, "cwd", cwd, sizeof(cwd)))
+    if (proc_read_link(pid, "cwd", cwd, sizeof(cwd)) == -1)
 	(void)strlcpy(cwd, "unknown", sizeof(cwd));
     buf = get_execve_info(pid, &regs, &pathname, &argc, &argv,
 	&envc, &envp);
