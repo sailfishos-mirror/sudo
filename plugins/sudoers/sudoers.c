@@ -1283,7 +1283,8 @@ open_file(const char *path, int flags)
 FILE *
 open_sudoers(const char *path, char **outfile, bool doedit, bool *keepopen)
 {
-    char fname[PATH_MAX];
+    char fnamebuf[PATH_MAX];
+    const char *fname = fnamebuf;
     FILE *fp = NULL;
     struct stat sb;
     int error, fd;
@@ -1291,12 +1292,13 @@ open_sudoers(const char *path, char **outfile, bool doedit, bool *keepopen)
 
     if (outfile == NULL) {
 	/* Single file, do not treat as a path. */
-	fd = open_file(path, O_RDONLY|O_NONBLOCK);
+	fname = path;
+	fd = open_file(fname, O_RDONLY|O_NONBLOCK);
         if (fd != -1)
             (void)fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) & ~O_NONBLOCK);
     } else {
 	/* Could be a colon-separated path of file names. */
-	fd = sudo_open_conf_path(path, fname, sizeof(fname), open_file);
+	fd = sudo_open_conf_path(path, fnamebuf, sizeof(fnamebuf), open_file);
     }
     if (sudoers_ctx.parser_conf.ignore_perms) {
 	/* Skip sudoers security checks when ignore_perms is set. */
