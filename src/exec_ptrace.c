@@ -1015,12 +1015,13 @@ get_execve_info(pid_t pid, struct sudo_ptrace_regs *regs, char **pathname_out,
 
 	/* For fexecve() the path may be in the form /proc/self/fd/N */
 	if (strncmp(argbuf, "/proc/self/fd/", 14) == 0) {
-	    const char *errstr;
 	    const char *fdstr = argbuf + 14;
+	    const char *name = argbuf + 11;
+	    const char *errstr;
 	    (void)sudo_strtonum(fdstr, 0, INT_MAX, &errstr);
 	    if (errstr == NULL) {
 		/* Rewrite argbuf with link target (if it is one). */
-		ssize_t len = proc_read_link(pid, fdstr, argbuf, bufsize);
+		ssize_t len = proc_read_link(pid, name, argbuf, bufsize);
 		if (len != -1)
 		    nread = len;
 	    }
