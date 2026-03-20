@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2022-2026 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -87,6 +87,7 @@
 # define reg_arg2(x)		(x).rsi
 # define reg_arg3(x)		(x).rdx
 # define reg_arg4(x)		(x).r10
+# define reg_arg5(x)		(x).r8
 #elif defined(__aarch64__)
 # define SECCOMP_AUDIT_ARCH	AUDIT_ARCH_AARCH64
 # define sudo_pt_regs		struct user_pt_regs
@@ -97,6 +98,7 @@
 # define reg_arg2(x)		(x).regs[1]	/* x1 */
 # define reg_arg3(x)		(x).regs[2]	/* x2 */
 # define reg_arg4(x)		(x).regs[3]	/* x3 */
+# define reg_arg5(x)		(x).regs[4]	/* x4 */
 # define reg_set_syscall(_r, _nr) do {					\
     struct iovec _iov;							\
     long _syscallno = (_nr);						\
@@ -115,6 +117,7 @@
 # define reg_arg2(x)		(x).ARM_r1
 # define reg_arg3(x)		(x).ARM_r2
 # define reg_arg4(x)		(x).ARM_r3
+# define reg_arg5(x)		(x).ARM_r4
 # define reg_set_syscall(_r, _nr) do {					\
     ptrace(PTRACE_SET_SYSCALL, pid, NULL, _nr);				\
 } while (0)
@@ -129,6 +132,7 @@
 # define reg_arg2(x)		(x).gr[25]	/* r25 */
 # define reg_arg3(x)		(x).gr[24]	/* r24 */
 # define reg_arg4(x)		(x).gr[23]	/* r23 */
+# define reg_arg5(x)		(x).gr[22]	/* r22 */
 #elif defined(__i386__)
 # define SECCOMP_AUDIT_ARCH	AUDIT_ARCH_I386
 # define sudo_pt_regs		struct user_regs_struct
@@ -139,6 +143,7 @@
 # define reg_arg2(x)		(x).ecx
 # define reg_arg3(x)		(x).edx
 # define reg_arg4(x)		(x).esi
+# define reg_arg5(x)		(x).edi
 #elif defined(__mips__)
 # if _MIPS_SIM == _MIPS_SIM_ABI32
 #  /* Linux o32 style syscalls, 4000-4999. */
@@ -204,15 +209,16 @@
     else								\
 	(_r).regs[6] = _v; /* a2 */					\
 } while (0)
-/* XXX - reg_arg4 probably wrong for syscall() type calls on 032. */
+/*
+ * The o32 ABI uses registers a0 - a3 for the first 4 args, all others
+ * are on the stack.  We do not implement reg_set_arg4 or reg_set_arg5.
+ */
 # define reg_arg4(x)		\
-    ((x).regs[2] == __NR_O32_Linux ? (x).regs[8] : (x).regs[7])
-# define reg_set_arg4(_r, _v) do {					\
-    if ((_r).regs[2] == __NR_O32_Linux)					\
-	(_r).regs[8] = _v; /* a4 */					\
-    else								\
-	(_r).regs[7] = _v; /* a3 */					\
-} while (0)
+    ((x).regs[2] == __NR_O32_Linux ? \
+	(ptrace(PTRACE_PEEKDATA, pid, reg_sp(x) + 16, NULL)) : (x).regs[7])
+# define reg_arg5(x)		\
+    ptrace(PTRACE_PEEKDATA, pid, reg_sp(x) + \
+	((x).regs[2] == __NR_O32_Linux ? 20 : 16))
 # define reg_set_syscall(_r, _nr) do {					\
     if ((_r).regs[2] == __NR_O32_Linux)					\
 	(_r).regs[4] = _nr; /* a0 */					\
@@ -237,6 +243,7 @@
 # define reg_arg2(x)		(x).gpr[4]	/* r4 */
 # define reg_arg3(x)		(x).gpr[5]	/* r5 */
 # define reg_arg4(x)		(x).gpr[6]	/* r6 */
+# define reg_arg5(x)		(x).gpr[7]	/* r7 */
 # define reg_set_retval(_r, _v) do {					\
     if (((_r).trap & 0xfff0) == 0x3000) {				\
 	/* scv 0 system call, uses negative error code for result. */	\
@@ -260,6 +267,7 @@
 # define reg_arg2(x)		(x).a1
 # define reg_arg3(x)		(x).a2
 # define reg_arg4(x)		(x).a3
+# define reg_arg5(x)		(x).a4
 #elif defined(__s390__)
 /*
  * Both the syscall number and return value are stored in r2 for
@@ -277,7 +285,8 @@
 # define reg_arg1(x)		(x).orig_gpr2	/* r2 */
 # define reg_arg2(x)		(x).gprs[3]	/* r3 */
 # define reg_arg3(x)		(x).gprs[4]	/* r4 */
-# define reg_arg4(x)		(x).gprs[5]	/* r6 */
+# define reg_arg4(x)		(x).gprs[5]	/* r5 */
+# define reg_arg5(x)		(x).gprs[6]	/* r6 */
 #else
 # error "Do not know how to find your architecture's registers"
 #endif
@@ -322,6 +331,7 @@ struct i386_user_regs_struct {
 # define compat_reg_arg2(x)		(x).ecx
 # define compat_reg_arg3(x)		(x).edx
 # define compat_reg_arg4(x)		(x).esi
+# define compat_reg_arg5(x)		(x).edi
 #elif defined(__aarch64__)
 struct arm_pt_regs {
   unsigned int uregs[18];
@@ -337,6 +347,7 @@ struct arm_pt_regs {
 # define compat_reg_arg2(x)		(x).uregs[1]	/* r1 */
 # define compat_reg_arg3(x)		(x).uregs[2]	/* r2 */
 # define compat_reg_arg4(x)		(x).uregs[3]	/* r3 */
+# define compat_reg_arg5(x)		(x).uregs[4]	/* r4 */
 # define compat_reg_set_syscall(_r, _nr) reg_set_syscall(_r, _nr)
 #elif defined(__mips__)
 # if _MIPS_SIM == _MIPS_SIM_ABI64
@@ -374,6 +385,8 @@ struct arm_pt_regs {
 # define compat_reg_set_arg3(_r, _v)	reg_set_arg3(_r, _v)
 # define compat_reg_arg4(x)		reg_arg4(x)
 # define compat_reg_set_arg4(_r, _v)	reg_set_arg4(_r, _v)
+# define compat_reg_arg5(x)		reg_arg5(x)
+# define compat_reg_set_arg5(_r, _v)	reg_set_arg5(_r, _v)
 # define compat_reg_set_syscall(_r, _nr) reg_set_syscall(_r, _nr)
 #elif defined(__powerpc64__)
 struct ppc_pt_regs {
@@ -407,6 +420,7 @@ struct ppc_pt_regs {
 # define compat_reg_arg2(x)		(x).gpr[4]	/* r4 */
 # define compat_reg_arg3(x)		(x).gpr[5]	/* r5 */
 # define compat_reg_arg4(x)		(x).gpr[6]	/* r6 */
+# define compat_reg_arg5(x)		(x).gpr[7]	/* r7 */
 # define compat_reg_set_retval(_r, _v)	reg_set_retval(_r, _v)
 #endif
 
@@ -475,6 +489,16 @@ struct ppc_pt_regs {
     compat_reg_arg4(_r) = (_v);						\
 } while (0)
 #endif
+#ifndef reg_set_arg5
+# define reg_set_arg5(_r, _v) do {					\
+    reg_arg5(_r) = (_v);						\
+} while (0)
+#endif
+#ifndef compat_reg_set_arg5
+# define compat_reg_set_arg5(_r, _v) do {				\
+    compat_reg_arg5(_r) = (_v);						\
+} while (0)
+#endif
 
 /* Set the syscall arguments the "normal" way by default. */
 #ifndef reg_set_arg1
@@ -515,6 +539,16 @@ struct ppc_pt_regs {
 #ifndef compat_reg_set_arg4
 # define compat_reg_set_arg4(_r, _v) do {				\
     compat_reg_arg4(_r) = (_v);						\
+} while (0)
+#endif
+#ifndef reg_set_arg5
+# define reg_set_arg5(_r, _v) do {					\
+    reg_arg5(_r) = (_v);						\
+} while (0)
+#endif
+#ifndef compat_reg_set_arg5
+# define compat_reg_set_arg5(_r, _v) do {				\
+    compat_reg_arg5(_r) = (_v);						\
 } while (0)
 #endif
 

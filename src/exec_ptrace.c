@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2022, 2026 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -115,7 +115,7 @@ set_syscallno(pid_t pid, struct sudo_ptrace_regs *regs, int syscallno)
 }
 
 static inline unsigned long
-get_sc_arg1(struct sudo_ptrace_regs *regs)
+get_sc_arg1(pid_t pid, struct sudo_ptrace_regs *regs)
 {
     if (regs->compat) {
 	return compat_reg_arg1(regs->u.compat);
@@ -135,7 +135,7 @@ set_sc_arg1(struct sudo_ptrace_regs *regs, unsigned long addr)
 }
 
 static inline unsigned long
-get_sc_arg2(struct sudo_ptrace_regs *regs)
+get_sc_arg2(pid_t pid, struct sudo_ptrace_regs *regs)
 {
     if (regs->compat) {
 	return compat_reg_arg2(regs->u.compat);
@@ -155,7 +155,7 @@ set_sc_arg2(struct sudo_ptrace_regs *regs, unsigned long addr)
 }
 
 static inline unsigned long
-get_sc_arg3(struct sudo_ptrace_regs *regs)
+get_sc_arg3(pid_t pid, struct sudo_ptrace_regs *regs)
 {
     if (regs->compat) {
 	return compat_reg_arg3(regs->u.compat);
@@ -164,7 +164,6 @@ get_sc_arg3(struct sudo_ptrace_regs *regs)
     }
 }
 
-#  ifdef notyet
 static inline void
 set_sc_arg3(struct sudo_ptrace_regs *regs, unsigned long addr)
 {
@@ -176,7 +175,7 @@ set_sc_arg3(struct sudo_ptrace_regs *regs, unsigned long addr)
 }
 
 static inline unsigned long
-get_sc_arg4(struct sudo_ptrace_regs *regs)
+get_sc_arg4(pid_t pid, struct sudo_ptrace_regs *regs)
 {
     if (regs->compat) {
 	return compat_reg_arg4(regs->u.compat);
@@ -185,13 +184,36 @@ get_sc_arg4(struct sudo_ptrace_regs *regs)
     }
 }
 
+#  ifdef notyet
 static inline void
-set_sc_arg4(struct sudo_ptrace_regs *regs, unsigned long addr)
+set_sc_arg3(struct sudo_ptrace_regs *regs, unsigned long addr)
 {
     if (regs->compat) {
 	compat_reg_set_arg4(regs->u.compat, addr);
     } else {
 	reg_set_arg4(regs->u.native, addr);
+    }
+}
+#  endif /* notyet */
+
+static inline unsigned long
+get_sc_arg5(pid_t pid, struct sudo_ptrace_regs *regs)
+{
+    if (regs->compat) {
+	return compat_reg_arg5(regs->u.compat);
+    } else {
+	return reg_arg5(regs->u.native);
+    }
+}
+
+#  ifdef notyet
+static inline void
+set_sc_arg5(struct sudo_ptrace_regs *regs, unsigned long addr)
+{
+    if (regs->compat) {
+	compat_reg_set_arg5(regs->u.compat, addr);
+    } else {
+	reg_set_arg5(regs->u.native, addr);
     }
 }
 #  endif /* notyet */
@@ -223,7 +245,7 @@ set_syscallno(pid_t pid, struct sudo_ptrace_regs *regs, int syscallno)
 }
 
 static inline unsigned long
-get_sc_arg1(struct sudo_ptrace_regs *regs)
+get_sc_arg1(pid_t pid, struct sudo_ptrace_regs *regs)
 {
     return reg_arg1(regs->u.native);
 }
@@ -235,7 +257,7 @@ set_sc_arg1(struct sudo_ptrace_regs *regs, unsigned long addr)
 }
 
 static inline unsigned long
-get_sc_arg2(struct sudo_ptrace_regs *regs)
+get_sc_arg2(pid_t pid, struct sudo_ptrace_regs *regs)
 {
     return reg_arg2(regs->u.native);
 }
@@ -247,12 +269,11 @@ set_sc_arg2(struct sudo_ptrace_regs *regs, unsigned long addr)
 }
 
 static inline unsigned long
-get_sc_arg3(struct sudo_ptrace_regs *regs)
+get_sc_arg3(pid_t pid, struct sudo_ptrace_regs *regs)
 {
     return reg_arg3(regs->u.native);
 }
 
-#  ifdef notyet
 static inline void
 set_sc_arg3(struct sudo_ptrace_regs *regs, unsigned long addr)
 {
@@ -260,17 +281,33 @@ set_sc_arg3(struct sudo_ptrace_regs *regs, unsigned long addr)
 }
 
 static inline unsigned long
-get_sc_arg4(struct sudo_ptrace_regs *regs)
+get_sc_arg4(pid_t pid, struct sudo_ptrace_regs *regs)
 {
     return reg_arg4(regs->u.native);
 }
 
+#  ifdef notyet
 static inline void
 set_sc_arg4(struct sudo_ptrace_regs *regs, unsigned long addr)
 {
     reg_set_arg4(regs->u.native, addr);
 }
 #  endif /* notyet */
+
+static inline unsigned long
+get_sc_arg5(pid_t pid, struct sudo_ptrace_regs *regs)
+{
+    return reg_arg5(regs->u.native);
+}
+
+#  ifdef notyet
+static inline void
+set_sc_arg5(struct sudo_ptrace_regs *regs, unsigned long addr)
+{
+    reg_set_arg5(regs->u.native, addr);
+}
+#  endif /* notyet */
+
 # endif /* SECCOMP_AUDIT_ARCH_COMPAT */
 
 /*
@@ -358,7 +395,7 @@ ptrace_readv_string(pid_t pid, unsigned long addr, char *buf, size_t bufsize)
     const char *cp, *buf0 = buf;
     struct iovec local, remote;
     ssize_t nread;
-    debug_decl(ptrace_read_string, SUDO_DEBUG_EXEC);
+    debug_decl(ptrace_readv_string, SUDO_DEBUG_EXEC);
 
     /*
      * Read the string via process_vm_readv(2) one page at a time.
@@ -951,7 +988,8 @@ ptrace_write_vec(pid_t pid, struct sudo_ptrace_regs *regs, char **vec,
 /*
  * Read a link from /proc/PID and store the result in buf.
  * Used to read the cwd and exe links in /proc/PID.
- * Returns the number of bytes written to buf on success, else -1.
+ * Returns the length of the link on success, else -1.
+ * NUL-terminates buf on success (not included in length).
  * Note: name and buf _may_ overlap.
  */
 static ssize_t
@@ -967,26 +1005,27 @@ proc_read_link(pid_t pid, const char *name, char *buf, size_t bufsize)
 	if (len != -1 && (size_t)len != bufsize) {
 	    /* readlink(2) does not add the NUL for us. */
 	    buf[len] = '\0';
-	    debug_return_ssize_t(len + 1);
+	    debug_return_ssize_t(len);
 	}
     }
     debug_return_ssize_t(-1);
 }
 
 /*
- * Read the filename, argv and envp of the execve(2) system call.
+ * Read execve(2) or execveat(2) system call arguments from pid.
  * Returns a dynamically allocated buffer the parent is responsible for.
  */
 static char *
-get_execve_info(pid_t pid, struct sudo_ptrace_regs *regs, char **pathname_out,
-    int *argc_out, char ***argv_out, int *envc_out, char ***envp_out)
+get_exec_info(pid_t pid, bool is_execveat, struct sudo_ptrace_regs *regs,
+    char **pathname_out, int *argc_out, char ***argv_out, int *envc_out,
+    char ***envp_out)
 {
     char *argbuf, **argv, **envp, *pathname = NULL;
     unsigned long argv_addr, envp_addr, path_addr;
     size_t bufsize, off = 0;
-    int i, argc, envc = 0;
+    int i, argc, dirfd = -1, flags = 0, envc = 0;
     ssize_t nread;
-    debug_decl(get_execve_info, SUDO_DEBUG_EXEC);
+    debug_decl(get_exec_info, SUDO_DEBUG_EXEC);
 
     bufsize = PATH_MAX + arg_max;
     argbuf = malloc(bufsize);
@@ -995,13 +1034,22 @@ get_execve_info(pid_t pid, struct sudo_ptrace_regs *regs, char **pathname_out,
 	goto bad;
     }
 
-    /* execve(2) takes three arguments: pathname, argv, envp. */
-    path_addr = get_sc_arg1(regs);
-    argv_addr = get_sc_arg2(regs);
-    envp_addr = get_sc_arg3(regs);
+    if (is_execveat) {
+	/* execveat(2) takes five arguments */
+	dirfd = get_sc_arg1(pid, regs) & 0xffffffff;
+	path_addr = get_sc_arg2(pid, regs);
+	argv_addr = get_sc_arg3(pid, regs);
+	envp_addr = get_sc_arg4(pid, regs);
+	flags = get_sc_arg5(pid, regs) & 0xffffffff;
+    } else {
+	/* execve(2) takes three arguments */
+	path_addr = get_sc_arg1(pid, regs);
+	argv_addr = get_sc_arg2(pid, regs);
+	envp_addr = get_sc_arg3(pid, regs);
+    }
     sudo_debug_printf(SUDO_DEBUG_INFO,
-	"%s: %d: path 0x%lx, argv 0x%lx, envp 0x%lx", __func__,
-	(int)pid, path_addr, argv_addr, envp_addr);
+	"%s: %d: dirfd %d, path 0x%lx, argv 0x%lx, envp 0x%lx, flags: 0x%x",
+	__func__, (int)pid, dirfd, path_addr, argv_addr, envp_addr, flags);
 
     /* Read the pathname, if not NULL. */
     if (path_addr != 0) {
@@ -1009,12 +1057,62 @@ get_execve_info(pid_t pid, struct sudo_ptrace_regs *regs, char **pathname_out,
 	if (nread == -1) {
 	    sudo_debug_printf(
 		SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
-		"unable to read execve pathname for process %d", (int)pid);
+		"unable to read execveat pathname for process %d", (int)pid);
 	    goto bad;
 	}
 
-	/* For fexecve() the path may be in the form /proc/self/fd/N */
-	if (strncmp(argbuf, "/proc/self/fd/", 14) == 0) {
+	/* Handle relative path and AT_EMPTY_PATH for execveat() */
+	if (is_execveat && argbuf[0] != '/') {
+	    if (argbuf[0] == '\0' && ISSET(flags, AT_EMPTY_PATH)) {
+		/* Used to implement fexecve(3) */
+		char name[64];
+		(void)snprintf(name, sizeof(name), "fd/%d", dirfd);
+		ssize_t len = proc_read_link(pid, name, argbuf, bufsize);
+		if (len == -1) {
+		    sudo_debug_printf(
+			SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
+			"unable to read link /proc/%d/fd/%d", (int)pid, dirfd);
+		    goto bad;
+		}
+		nread = len + 1;
+	    } else {
+		/* Relative path, resolve dirfd to a path. */
+		char dir[PATH_MAX];
+		char name[64];
+
+		if (dirfd == AT_FDCWD) {
+		    (void)strlcpy(name, "cwd", sizeof(name));
+		} else {
+		    (void)snprintf(name, sizeof(name), "fd/%d", dirfd);
+		}
+		ssize_t len = proc_read_link(pid, name, dir, sizeof(dir));
+		if (len == -1) {
+		    sudo_debug_printf(
+			SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
+			"unable to read link /proc/%d/%s", (int)pid, name);
+		    goto bad;
+		}
+		if ((size_t)(nread + len + 1) >= bufsize) {
+		    sudo_debug_printf(
+			SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
+			"out of space storing path for process %d",
+			(int)pid);
+		    goto bad;
+		}
+		/* Prepend directory to relative pathname.  */
+		memmove(argbuf + len + 1, argbuf, len + 1);
+		memcpy(argbuf, dir, len);
+		argbuf[len] = '/';
+		nread += len + 1;
+	    }
+	}
+
+	/*
+	 * For fexecve() the path may be in the form /proc/self/fd/N
+	 * Used by glibc when the system doesn't support execveat(2).
+	 */
+	if (!ISSET(flags, AT_SYMLINK_NOFOLLOW) &&
+		strncmp(argbuf, "/proc/self/fd/", 14) == 0) {
 	    const char *fdstr = argbuf + 14;
 	    const char *name = argbuf + 11;
 	    const char *errstr;
@@ -1023,7 +1121,7 @@ get_execve_info(pid_t pid, struct sudo_ptrace_regs *regs, char **pathname_out,
 		/* Rewrite argbuf with link target (if it is one). */
 		ssize_t len = proc_read_link(pid, name, argbuf, bufsize);
 		if (len != -1)
-		    nread = len;
+		    nread = len + 1;
 	    }
 	}
 
@@ -1037,7 +1135,7 @@ get_execve_info(pid_t pid, struct sudo_ptrace_regs *regs, char **pathname_out,
     if (nread == -1) {
 	sudo_debug_printf(
 	    SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
-	    "unable to read execve argv for process %d", (int)pid);
+	    "unable to read argv for process %d", (int)pid);
 	goto bad;
     }
     off += (size_t)nread;
@@ -1057,7 +1155,7 @@ get_execve_info(pid_t pid, struct sudo_ptrace_regs *regs, char **pathname_out,
     if (nread == -1) {
 	sudo_debug_printf(
 	    SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
-	    "unable to read execve envp for process %d", (int)pid);
+	    "unable to read envp for process %d", (int)pid);
 	goto bad;
     }
 
@@ -1579,6 +1677,7 @@ check_argv:
 
 /*
  * Verify that the execve(2) argument we wrote match the contents of closure.
+ * TODO: test execveat(2) too.
  * Returns true if they match, else false.
  */
 static bool
@@ -1590,7 +1689,7 @@ verify_execve_args(pid_t pid, struct sudo_ptrace_regs *regs,
     bool ret = false;
     debug_decl(verify_execve_args, SUDO_DEBUG_EXEC);
 
-    buf = get_execve_info(pid, regs, &pathname, &argc, &argv,
+    buf = get_exec_info(pid, false, regs, &pathname, &argc, &argv,
 	&envc, &envp);
     if (buf != NULL) {
 	ret = execve_args_match(pathname, argc, argv, envc, envp, false, closure);
@@ -1717,6 +1816,7 @@ ptrace_intercept_execve(pid_t pid, struct intercept_closure *closure)
     bool path_mismatch = false;
     bool argv_mismatch = false;
     char cwd[PATH_MAX], *orig_argv0;
+    bool is_execveat = false;
     unsigned long msg;
     bool ret = false;
     int i, oldcwd = -1;
@@ -1751,8 +1851,8 @@ ptrace_intercept_execve(pid_t pid, struct intercept_closure *closure)
 	    /* Handled below. */
 	    break;
 	case COMPAT_execveat:
-	    /* We don't currently check execveat(2). */
-	    debug_return_bool(true);
+	    /* Handled below. */
+	    is_execveat = true;
 	    break;
 	default:
 	    sudo_warnx("%s: unexpected compat system call %d",
@@ -1774,8 +1874,8 @@ ptrace_intercept_execve(pid_t pid, struct intercept_closure *closure)
 	case X32_execveat:
 # endif
 	case __NR_execveat:
-	    /* We don't currently check execveat(2). */
-	    debug_return_bool(true);
+	    /* Handled below. */
+	    is_execveat = true;
 	    break;
 	default:
 	    sudo_warnx("%s: unexpected system call %d", __func__, syscallno);
@@ -1786,7 +1886,7 @@ ptrace_intercept_execve(pid_t pid, struct intercept_closure *closure)
     /* Get the current working directory and execve info. */
     if (proc_read_link(pid, "cwd", cwd, sizeof(cwd)) == -1)
 	(void)strlcpy(cwd, "unknown", sizeof(cwd));
-    buf = get_execve_info(pid, &regs, &pathname, &argc, &argv,
+    buf = get_exec_info(pid, is_execveat, &regs, &pathname, &argc, &argv,
 	&envc, &envp);
     if (buf == NULL) {
 	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_ERRNO,
@@ -1910,7 +2010,11 @@ ptrace_intercept_execve(pid_t pid, struct intercept_closure *closure)
 
 	    if (argv_mismatch) {
 		/* Update argv address in the tracee to our new value. */
-		set_sc_arg2(&regs, sp);
+		if (is_execveat) {
+		    set_sc_arg3(&regs, sp);
+		} else {
+		    set_sc_arg2(&regs, sp);
+		}
 
 		/* Skip over argv pointers (plus NULL) for string table. */
 		strtab += ((size_t)argc + 1 + regs.compat) * regs.wordsize;
@@ -1923,7 +2027,11 @@ ptrace_intercept_execve(pid_t pid, struct intercept_closure *closure)
 	    }
 	    if (path_mismatch) {
 		/* Update pathname address in the tracee to our new value. */
-		set_sc_arg1(&regs, strtab);
+		if (is_execveat) {
+		    set_sc_arg2(&regs, strtab);
+		} else {
+		    set_sc_arg1(&regs, strtab);
+		}
 
 		/* Write pathname to the string table. */
 		nwritten = ptrace_write_string(pid, strtab, closure->command);
