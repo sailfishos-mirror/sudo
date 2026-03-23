@@ -109,7 +109,7 @@ bsdauth_verify(const struct sudoers_context *ctx, struct passwd *pw,
     char *pass;
     char *s;
     size_t len;
-    int authok = 0;
+    int ret = AUTH_ERROR;
     struct sigaction sa, osa;
     auth_session_t *as = ((struct bsdauth_state *) auth->data)->as;
     debug_decl(bsdauth_verify, SUDOERS_DEBUG_AUTH);
@@ -123,15 +123,15 @@ bsdauth_verify(const struct sudoers_context *ctx, struct passwd *pw,
     sa.sa_handler = SIG_DFL;
     (void) sigaction(SIGCHLD, &sa, &osa);
 
-    /*
-     * If there is a challenge then print that instead of the normal
-     * prompt.  If the user just hits return we prompt again with echo
-     * turned on, which is useful for challenge/response things like
-     * S/Key.
-     */
     if ((s = auth_challenge(as)) == NULL) {
+	/* No challenge, use normal password prompt. */
 	pass = auth_getpass(prompt, SUDO_CONV_PROMPT_ECHO_OFF, callback);
     } else {
+	/*
+	 * Print the challenge instead of the normal prompt.  If the
+	 * user just hits return we prompt again with echo turned on,
+	 * which is useful for challenge/response things like S/Key.
+	 */
 	pass = auth_getpass(s, SUDO_CONV_PROMPT_ECHO_OFF, callback);
 	if (pass != NULL && *pass == '\0') {
 	    if ((prompt = strrchr(s, '\n')))
@@ -148,7 +148,7 @@ bsdauth_verify(const struct sudoers_context *ctx, struct passwd *pw,
 		len--;
 	    if (asprintf(&s, "%.*s [echo on]: ", (int)len, prompt) == -1) {
 		log_warningx(ctx, 0, N_("unable to allocate memory"));
-		debug_return_int(AUTH_ERROR);
+		goto done;
 	    }
 	    free(pass);
 	    pass = auth_getpass(s, SUDO_CONV_PROMPT_ECHO_ON, callback);
@@ -156,23 +156,26 @@ bsdauth_verify(const struct sudoers_context *ctx, struct passwd *pw,
 	}
     }
 
-    if (pass != NULL) {
-	authok = auth_userresponse(as, pass, 1);
+    if (pass == NULL) {
+	/* error or ^C from tgetpass() */
+	ret = AUTH_INTR;
+    } else {
+	/* verify password */
+	if (auth_userresponse(as, pass, 1)) {
+	    ret = AUTH_SUCCESS;
+	} else {
+	    ret = AUTH_FAILURE;
+	    if ((s = auth_getvalue(as, (char *)"errormsg")) != NULL)
+		log_warningx(ctx, 0, "%s", s);
+	}
 	freezero(pass, strlen(pass));
     }
 
+done:
     /* restore old signal handler */
     (void) sigaction(SIGCHLD, &osa, NULL);
 
-    if (authok)
-	debug_return_int(AUTH_SUCCESS);
-
-    if (pass == NULL)
-	debug_return_int(AUTH_INTR);
-
-    if ((s = auth_getvalue(as, (char *)"errormsg")) != NULL)
-	log_warningx(ctx, 0, "%s", s);
-    debug_return_int(AUTH_FAILURE);
+    debug_return_int(ret);
 }
 
 int
