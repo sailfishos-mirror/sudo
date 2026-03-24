@@ -96,7 +96,8 @@ bsdauth_init(const struct sudoers_context *ctx, struct passwd *pw,
     auth->data = (void *) &state;
     debug_return_int(AUTH_SUCCESS);
 bad:
-    auth_close(state.as);
+    if (state.as != NULL)
+	auth_close(state.as);
     login_close(state.lc);
     debug_return_int(AUTH_ERROR);
 }
@@ -199,8 +200,10 @@ bsdauth_cleanup(const struct sudoers_context *ctx, struct passwd *pw,
     debug_decl(bsdauth_cleanup, SUDOERS_DEBUG_AUTH);
 
     if (state != NULL) {
-	auth_close(state->as);
-	state->as = NULL;
+	if (state->as != NULL) {
+	    auth_close(state->as);
+	    state->as = NULL;
+	}
 	login_close(state->lc);
 	state->lc = NULL;
 	auth->data = NULL;
