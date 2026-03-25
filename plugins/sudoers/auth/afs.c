@@ -45,6 +45,7 @@ sudo_afs_verify(const struct sudoers_context *ctx, struct passwd *pw,
 {
     struct ktc_encryptionKey afs_key;
     struct ktc_token afs_token;
+    int ret = AUTH_FAILURE;
     debug_decl(sudo_afs_verify, SUDOERS_DEBUG_AUTH);
 
     if (IS_NONINTERACTIVE(auth))
@@ -61,8 +62,10 @@ sudo_afs_verify(const struct sudoers_context *ctx, struct passwd *pw,
 			 &afs_key,		/* key (contains password) */
 			 0,			/* lifetime */
 			 &afs_token,		/* token */
-			 0) == 0)		/* new */
-	debug_return_int(AUTH_SUCCESS);
+			 0) == 0) {		/* new */
+	ret = AUTH_SUCCESS;
+	goto done;
+    }
 
     /* Fall back on old method XXX - needed? */
     setpag();
@@ -75,9 +78,12 @@ sudo_afs_verify(const struct sudoers_context *ctx, struct passwd *pw,
 				   NULL,	/* expiration ptr (unused) */
 				   0,		/* spare */
 				   NULL) == 0)	/* reason */
-	debug_return_int(AUTH_SUCCESS);
+	ret = AUTH_SUCCESS;
 
-    debug_return_int(AUTH_FAILURE);
+done:
+    explicit_bzero(&afs_key, sizeof(afs_key));
+    explicit_bzero(&afs_token, sizeof(afs_token));
+    debug_return_int(ret);
 }
 
-#endif HAVE_AFS
+#endif /* HAVE_AFS */
