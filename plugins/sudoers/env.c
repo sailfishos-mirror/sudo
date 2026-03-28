@@ -171,6 +171,8 @@ static const char *initial_badenv_table[] = {
     "BASHOPTS",			/* bash, initial "shopt -s" options */
     "SHELLOPTS",		/* bash, initial "set -o" options */
     "JAVA_TOOL_OPTIONS",	/* java, extra command line options */
+    "_JAVA_OPTIONS",		/* java, extra command line options (legacy) */
+    "CLASSPATH",		/* java, class search path */
     "PERLIO_DEBUG",		/* perl, debugging output file */
     "PERLLIB",			/* perl, search path for modules/includes */
     "PERL5LIB",			/* perl 5, search path for modules/includes */
@@ -185,8 +187,13 @@ static const char *initial_badenv_table[] = {
     "PYTHONPATH",		/* python, search path */
     "PYTHONINSPECT",		/* python, allow inspection */
     "PYTHONUSERBASE",		/* python, per user site-packages directory */
+    "PYTHONSTARTUP",		/* python, interactive mode startup script */
     "RUBYLIB",			/* ruby, library load path */
     "RUBYOPT",			/* ruby, extra command line options */
+    "NODE_OPTIONS",		/* node.js, extra command line options */
+    "NODE_PATH",		/* node.js, module search path */
+    "GIT_SSH_COMMAND",		/* git, custom SSH command */
+    "GIT_CONFIG_GLOBAL",	/* git, global config file override */
     "*=()*",			/* bash functions */
     NULL
 };
