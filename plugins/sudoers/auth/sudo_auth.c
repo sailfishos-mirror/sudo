@@ -1,7 +1,8 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 1999-2005, 2008-2020 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 1999-2005, 2008-2020, 2022-2026
+ *	Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -94,7 +95,7 @@ int
 sudo_auth_init(const struct sudoers_context *ctx, struct passwd *pw,
     unsigned int mode)
 {
-    sudo_auth *auth;
+    sudo_auth *auth, *highlander = NULL;
     debug_decl(sudo_auth_init, SUDOERS_DEBUG_AUTH);
 
     if (auth_switch[0].name == NULL)
@@ -147,20 +148,18 @@ sudo_auth_init(const struct sudoers_context *ctx, struct passwd *pw,
     }
 
     /* Set FLAG_ONEANDONLY if there is only one auth method. */
-    for (auth = auth_switch; auth->name; auth++) {
-	/* Find first enabled auth method. */
+    for (auth = auth_switch; auth->name != NULL; auth++) {
 	if (!IS_DISABLED(auth)) {
-	    sudo_auth *first = auth;
-	    /* Check for others. */
-	    for (; auth->name; auth++) {
-		if (!IS_DISABLED(auth))
-		    break;
+	    /* There can be only one... */
+	    if (highlander != NULL) {
+		highlander = NULL;
+		break;
 	    }
-	    if (auth->name == NULL)
-		SET(first->flags, FLAG_ONEANDONLY);
-	    break;
+	    highlander = auth;
 	}
     }
+    if (highlander != NULL)
+	SET(highlander->flags, FLAG_ONEANDONLY);
 
     debug_return_int(AUTH_SUCCESS);
 }
