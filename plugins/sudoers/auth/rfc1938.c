@@ -72,7 +72,7 @@ sudo_rfc1938_setup(const struct sudoers_context *ctx, struct passwd *pw,
 	op_len = strlen(orig_prompt);
 
 	/* Ignore trailing colon (we will add our own) */
-	if (orig_prompt[op_len - 1] == ':')
+	if (op_len > 0 && orig_prompt[op_len - 1] == ':')
 	    op_len--;
 	else if (op_len >= 2 && orig_prompt[op_len - 1] == ' '
 	    && orig_prompt[op_len - 2] == ':')
