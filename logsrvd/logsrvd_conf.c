@@ -835,7 +835,7 @@ cb_relay_timeout(struct logsrvd_config *config, const char *str, size_t offset)
     if (errstr != NULL)
 	debug_return_bool(false);
 
-    config->server.timeout.tv_sec = timeout;
+    config->relay.timeout.tv_sec = timeout;
 
     debug_return_bool(true);
 }
