@@ -67,3 +67,5 @@ $TESTSUDOERS -u admin -g wheel -p ${TESTDIR}/passwd -P ${TESTDIR}/group \
     admin /bin/ls <<'EOF'
 admin ALL = (:wheel, !wheel, operator) /bin/ls
 EOF
+
+exit 0
