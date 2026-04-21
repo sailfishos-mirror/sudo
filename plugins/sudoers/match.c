@@ -207,6 +207,8 @@ runas_userlist_matches(const struct sudoers_parse_tree *parse_tree,
 		    user_matched = m->negated ? DENY : ALLOW;
 		break;
 	}
+	if (SPECIFIED(user_matched))
+	    break;
     }
     debug_return_int(user_matched);
 }
@@ -253,6 +255,8 @@ runas_grouplist_matches(const struct sudoers_parse_tree *parse_tree,
 			group_matched = m->negated ? DENY : ALLOW;
 		    break;
 	    }
+	    if (SPECIFIED(group_matched))
+		break;
 	}
     }
     if (!SPECIFIED(group_matched) && user_matched == ALLOW) {
