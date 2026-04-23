@@ -385,7 +385,7 @@ direct_exec_allowed(const struct command_details *details)
 	debug_return_bool(false);
     if (ISSET(details->flags, CD_RBAC_ENABLED|CD_SET_TIMEOUT|CD_SUDOEDIT))
 	debug_return_bool(false);
-    if (ISSET(details->flags, CD_INTERCEPT|CD_LOG_SUBCMDS))
+    if (ISSET(details->flags, CD_INTERCEPT|CD_LOG_SUBCMDS|CD_USE_PTRACE))
 	debug_return_bool(false);
 
     TAILQ_FOREACH(plugin, &audit_plugins, entries) {
