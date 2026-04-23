@@ -281,8 +281,8 @@ static char **
 user_mailer_env(const char *user)
 {
     char **envp;
-    int envc = 4;
-    int i = 0;
+    int i, envc = 4;
+    debug_decl(user_mailer_env, SUDO_DEBUG_UTIL);
 
 #ifdef _AIX
     envc++;	/* for LOGIN variable */
@@ -296,34 +296,37 @@ user_mailer_env(const char *user)
     if (envp == NULL)
 	goto bad;
 
-    if (i >= envc)
-	goto bad;
-    if ((envp[i++] = strdup("HOME=/")) == NULL)
-	goto bad;
-
-    if (i >= envc)
-	goto bad;
-    if ((envp[i++] = strdup("PATH=" _PATH_STDPATH)) == NULL)
-	goto bad;
-
-    if (i >= envc)
-	goto bad;
-    if (asprintf(&envp[i++], "LOGNAME=%s", user) == -1)
-	goto bad;
-
-    if (i >= envc)
-	goto bad;
-    if (asprintf(&envp[i++], "USER=%s", user) == -1)
-	goto bad;
-
+    for (i = 0; i < envc; i++) {
+	switch (i) {
+	case 0:
+	    if ((envp[i] = strdup("HOME=/")) == NULL)
+		goto bad;
+	    break;
+	case 1:
+	    if ((envp[i] = strdup("PATH=" _PATH_STDPATH)) == NULL)
+		goto bad;
+	    break;
+	case 2:
+	    if (asprintf(&envp[i], "LOGNAME=%s", user) == -1)
+		goto bad;
+	    break;
+	case 3:
+	    if (asprintf(&envp[i], "USER=%s", user) == -1)
+		goto bad;
+	    break;
 #ifdef _AIX
-    if (i >= envc)
-	goto bad;
-    if (asprintf(&envp[i++], "LOGIN=%s", user) == -1)
-	goto bad;
+	case 4:
+	    if (asprintf(&envp[i], "LOGIN=%s", user) == -1)
+		goto bad;
+	    break;
 #endif /* _AIX */
+	default:
+	    sudo_warnx(U_("internal error, %s overflow"), __func__);
+	    goto bad;
+	}
+    }
 
-    return envp;
+    debug_return_ptr(envp);
 bad:
     if (envp != NULL) {
 	for (i = 0; i < envc && envp[i] != NULL; i++) {
@@ -331,7 +334,7 @@ bad:
 	}
 	free(envp);
     }
-    return NULL;
+    debug_return_ptr(NULL);
 }
 
 #define MAX_MAILFLAGS	63
