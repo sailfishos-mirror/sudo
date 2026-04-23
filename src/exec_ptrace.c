@@ -1120,8 +1120,13 @@ get_exec_info(pid_t pid, bool is_execveat, struct sudo_ptrace_regs *regs,
 	    if (errstr == NULL) {
 		/* Rewrite argbuf with link target (if it is one). */
 		ssize_t len = proc_read_link(pid, name, argbuf, bufsize);
-		if (len != -1)
-		    nread = len + 1;
+		if (len == -1) {
+		    sudo_debug_printf(
+			SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
+			"unable to rewrite pathname for process %d", (int)pid);
+		    goto bad;
+		}
+		nread = len + 1;
 	    }
 	}
 
