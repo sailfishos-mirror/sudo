@@ -1100,7 +1100,7 @@ get_exec_info(pid_t pid, bool is_execveat, struct sudo_ptrace_regs *regs,
 		    goto bad;
 		}
 		/* Prepend directory to relative pathname.  */
-		memmove(argbuf + len + 1, argbuf, len + 1);
+		memmove(argbuf + len + 1, argbuf, nread);
 		memcpy(argbuf, dir, len);
 		argbuf[len] = '/';
 		nread += len + 1;
