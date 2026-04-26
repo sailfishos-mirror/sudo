@@ -1,7 +1,8 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2010-2015, 2020-2022 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2010-2015, 2020-2023, 2025-2026
+ *	Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -42,7 +43,7 @@ wordsplit(const char *str, const char *endstr, const char **last)
     if (str == NULL) {
 	str = *last;
 	/* Consume end quote if present. */
-	if (*str == '"' || *str == '\'')
+	if (str < endstr && (*str == '"' || *str == '\''))
 	    str++;
     }
 
@@ -56,17 +57,17 @@ wordsplit(const char *str, const char *endstr, const char **last)
 	debug_return_ptr(NULL);
     }
 
-    /* If word is quoted, skip to end quote and return. */
+    /* If word is quoted, skip to end quote (if present) and return. */
     if (*str == '"' || *str == '\'') {
-	const char *endquote;
-	for (cp = str + 1; cp < endstr; cp = endquote + 1) {
-	    endquote = memchr(cp, *str, (size_t)(endstr - cp));
-	    if (endquote == NULL)
-		break;
-	    /* ignore escaped quotes */
-	    if (endquote[-1] != '\\') {
-		*last = endquote;
+	for (cp = str + 1; cp < endstr; cp++) {
+	    if (*cp == *str) {
+		/* Found non-escaped end quote. */
+		*last = cp;
 		debug_return_const_ptr(str + 1);
+	    }
+	    if (*cp == '\\' && cp + 1 < endstr) {
+		/* quoted char, do not interpret */
+		cp++;
 	    }
 	}
     }
