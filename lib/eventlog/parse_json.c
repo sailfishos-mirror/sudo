@@ -511,7 +511,7 @@ json_parse_string(char **strp)
     debug_decl(json_parse_string, SUDO_DEBUG_UTIL);
 
     for (end = src; *end != '"' && *end != '\0'; end++) {
-	if (end[0] == '\\' && end[1] == '"')
+	if (end[0] == '\\' && end[1] != '\0')
 	    end++;
     }
     if (*end != '"') {
