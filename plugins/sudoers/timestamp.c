@@ -70,6 +70,27 @@ timestamp_get_uid(void)
     return timestamp_uid;
 }
 
+static bool
+start_time_matches(struct timespec *ts1, struct timespec *ts2)
+{
+    debug_decl(start_time_matches, SUDOERS_DEBUG_AUTH);
+
+    if (sudo_timespeccmp(ts1, ts2, !=)) {
+	/*
+	 * Session/process start time is wall clock time and can be affected
+	 * by ntp clock updates.  We only allow sub-second fluctuations to
+	 * limit the possibility of the user logging out and back in again
+	 * and recycling the same process or session ID.
+	 */
+	int64_t diff = 1000000000L * (int64_t)(ts1->tv_sec - ts2->tv_sec);
+	diff += ts1->tv_nsec - ts2->tv_nsec;
+	if (diff > 1000000000L || diff < -1000000000L) {
+	    debug_return_bool(false);
+	}
+    }
+    debug_return_bool(true);
+}
+
 /*
  * Returns true if entry matches key, else false.
  * We don't match on the sid or actual time stamp.
@@ -110,7 +131,7 @@ ts_match_record(struct timestamp_entry *key, struct timestamp_entry *entry,
 		(int)key->u.ppid, (int)entry->u.ppid);
 	    debug_return_bool(false);
 	}
-	if (sudo_timespeccmp(&entry->start_time, &key->start_time, !=)) {
+	if (!start_time_matches(&entry->start_time, &key->start_time)) {
 	    sudo_debug_printf(SUDO_DEBUG_DEBUG,
 		"%s:%u ppid start time mismatch", __func__, recno);
 	    debug_return_bool(false);
@@ -123,22 +144,10 @@ ts_match_record(struct timestamp_entry *key, struct timestamp_entry *entry,
 		recno, (unsigned int)key->u.ttydev, (unsigned int)entry->u.ttydev);
 	    debug_return_bool(false);
 	}
-	if (sudo_timespeccmp(&entry->start_time, &key->start_time, !=)) {
-	    /*
-	     * Session leader start time is wall clock time and can be
-	     * affected by ntp clock updates.  We only allow sub-second
-	     * fluctuations to limit the possibility of the user logging
-	     * out and back in again and recycling the same tty session.
-	     */
-	    int64_t diff = 1000000000L *
-		(int64_t)(entry->start_time.tv_sec - key->start_time.tv_sec);
-	    diff += entry->start_time.tv_nsec - key->start_time.tv_nsec;
-	    if (diff > 1000000000L || diff < -1000000000L) {
-		sudo_debug_printf(SUDO_DEBUG_DEBUG,
-		    "%s:%u session leader start time mismatch (%lld nsec)",
-		    __func__, recno, (long long)diff);
-		debug_return_bool(false);
-	    }
+	if (!start_time_matches(&entry->start_time, &key->start_time)) {
+	    sudo_debug_printf(SUDO_DEBUG_DEBUG,
+		"%s:%u session leader start time mismatch", __func__, recno);
+	    debug_return_bool(false);
 	}
 	break;
     default:
