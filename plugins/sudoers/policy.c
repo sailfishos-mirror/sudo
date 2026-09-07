@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2010-2024 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2010-2026 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -90,6 +90,8 @@ unsigned int
 sudoers_policy_deserialize_info(struct sudoers_context *ctx, void *v,
     struct defaults_list *defaults)
 {
+    const size_t host_name_max = sudo_host_name_max();
+    const size_t login_name_max = sudo_login_name_max();
     const char *p, *errstr, *groups = NULL;
     struct sudoers_open_info *info = v;
     unsigned int flags = MODE_UPDATE_TICKET;
@@ -138,6 +140,10 @@ sudoers_policy_deserialize_info(struct sudoers_context *ctx, void *v,
 	    if (MATCHES(*cur, "sudoers_file=")) {
 		CHECK(*cur, "sudoers_file=");
 		path_sudoers = *cur + sizeof("sudoers_file=") - 1;
+		if (strlen(path_sudoers) >= PATH_MAX) {
+		    sudo_warnx(U_("path name for \"%s\" too long"), "sudoers_file");
+		    goto bad;
+		}
 		continue;
 	    }
 	    if (MATCHES(*cur, "sudoers_uid=")) {
@@ -170,11 +176,19 @@ sudoers_policy_deserialize_info(struct sudoers_context *ctx, void *v,
 	    if (MATCHES(*cur, "ldap_conf=")) {
 		CHECK(*cur, "ldap_conf=");
 		ctx->settings.ldap_conf = *cur + sizeof("ldap_conf=") - 1;
+		if (strlen(ctx->settings.ldap_conf) >= PATH_MAX) {
+		    sudo_warnx(U_("path name for \"%s\" too long"), "ldap_conf");
+		    goto bad;
+		}
 		continue;
 	    }
 	    if (MATCHES(*cur, "ldap_secret=")) {
 		CHECK(*cur, "ldap_secret=");
 		ctx->settings.ldap_secret = *cur + sizeof("ldap_secret=") - 1;
+		if (strlen(ctx->settings.ldap_secret) >= PATH_MAX) {
+		    sudo_warnx(U_("path name for \"%s\" too long"), "ldap_secret");
+		    goto bad;
+		}
 		continue;
 	    }
 	}
@@ -217,12 +231,22 @@ sudoers_policy_deserialize_info(struct sudoers_context *ctx, void *v,
 	if (MATCHES(*cur, "runas_user=")) {
 	    CHECK(*cur, "runas_user=");
 	    ctx->runas.user = *cur + sizeof("runas_user=") - 1;
+	    if (strlen(ctx->runas.user) >= login_name_max) {
+		errno = ENAMETOOLONG;
+		sudo_warn("runas_user");
+		goto bad;
+	    }
 	    SET(ctx->settings.flags, RUNAS_USER_SPECIFIED);
 	    continue;
 	}
 	if (MATCHES(*cur, "runas_group=")) {
 	    CHECK(*cur, "runas_group=");
 	    ctx->runas.group = *cur + sizeof("runas_group=") - 1;
+	    if (strlen(ctx->runas.group) >= login_name_max) {
+		errno = ENAMETOOLONG;
+		sudo_warn("runas_group");
+		goto bad;
+	    }
 	    SET(ctx->settings.flags, RUNAS_GROUP_SPECIFIED);
 	    continue;
 	}
@@ -296,6 +320,11 @@ sudoers_policy_deserialize_info(struct sudoers_context *ctx, void *v,
 	if (MATCHES(*cur, "login_class=")) {
 	    CHECK(*cur, "login_class=");
 	    ctx->runas.class = *cur + sizeof("login_class=") - 1;
+	    if (strlen(ctx->runas.class) >= 1024) {
+		errno = ENAMETOOLONG;
+		sudo_warn("login_class");
+		goto bad;
+	    }
 	    if (!append_default("use_loginclass", NULL, true, NULL, defaults))
 		goto oom;
 	    continue;
@@ -314,17 +343,27 @@ sudoers_policy_deserialize_info(struct sudoers_context *ctx, void *v,
 	}
 	if (MATCHES(*cur, "selinux_role=")) {
 	    CHECK(*cur, "selinux_role=");
+	    p = *cur + sizeof("selinux_role=") - 1;
+	    if (strlen(p) >= 1024) {
+		errno = ENAMETOOLONG;
+		sudo_warn("selinux_role");
+		goto bad;
+	    }
 	    free(ctx->runas.role);
-	    ctx->runas.role = strdup(*cur + sizeof("selinux_role=") - 1);
-	    if (ctx->runas.role == NULL)
+	    if ((ctx->runas.role = strdup(p)) == NULL)
 		goto oom;
 	    continue;
 	}
 	if (MATCHES(*cur, "selinux_type=")) {
 	    CHECK(*cur, "selinux_type=");
+	    p = *cur + sizeof("selinux_type=") - 1;
+	    if (strlen(p) >= 1024) {
+		errno = ENAMETOOLONG;
+		sudo_warn("selinux_type");
+		goto bad;
+	    }
 	    free(ctx->runas.type);
-	    ctx->runas.type = strdup(*cur + sizeof("selinux_type=") - 1);
-	    if (ctx->runas.type == NULL)
+	    if ((ctx->runas.type = strdup(p)) == NULL)
 		goto oom;
 	    continue;
 	}
@@ -332,6 +371,11 @@ sudoers_policy_deserialize_info(struct sudoers_context *ctx, void *v,
 	if (MATCHES(*cur, "bsdauth_type=")) {
 	    CHECK(*cur, "bsdauth_type=");
 	    p = *cur + sizeof("bsdauth_type=") - 1;
+	    if (strlen(p) >= 1024) {
+		errno = ENAMETOOLONG;
+		sudo_warn("bsdauth_type");
+		goto bad;
+	    }
 	    bsdauth_set_style(p);
 	    continue;
 	}
@@ -357,7 +401,13 @@ sudoers_policy_deserialize_info(struct sudoers_context *ctx, void *v,
 	}
 	if (MATCHES(*cur, "remote_host=")) {
 	    CHECK(*cur, "remote_host=");
-	    remhost = *cur + sizeof("remote_host=") - 1;
+	    p = *cur + sizeof("remote_host=") - 1;
+	    if (strlen(p) >= host_name_max) {
+		errno = ENAMETOOLONG;
+		sudo_warn("remote_host");
+		goto bad;
+	    }
+	    remhost = p;
 	    continue;
 	}
 	if (MATCHES(*cur, "timeout=")) {
@@ -381,7 +431,12 @@ sudoers_policy_deserialize_info(struct sudoers_context *ctx, void *v,
 #ifdef ENABLE_SUDO_PLUGIN_API
 	if (MATCHES(*cur, "plugin_dir=")) {
 	    CHECK(*cur, "plugin_dir=");
-	    ctx->settings.plugin_dir = *cur + sizeof("plugin_dir=") - 1;
+	    p = *cur + sizeof("plugin_dir=") - 1;
+	    if (strlen(p) >= PATH_MAX) {
+		sudo_warnx(U_("path name for \"%s\" too long"), "plugin_dir");
+		goto bad;
+	    }
+	    ctx->settings.plugin_dir = p;
 	    continue;
 	}
 #endif
@@ -397,8 +452,14 @@ sudoers_policy_deserialize_info(struct sudoers_context *ctx, void *v,
     for (cur = info->user_info; *cur != NULL; cur++) {
 	if (MATCHES(*cur, "user=")) {
 	    CHECK(*cur, "user=");
+	    p = *cur + sizeof("user=") - 1;
+	    if (strlen(p) >= login_name_max) {
+		errno = ENAMETOOLONG;
+		sudo_warn("user");
+		goto bad;
+	    }
 	    free(ctx->user.name);
-	    if ((ctx->user.name = strdup(*cur + sizeof("user=") - 1)) == NULL)
+	    if ((ctx->user.name = strdup(p)) == NULL)
 		goto oom;
 	    continue;
 	}
@@ -445,15 +506,26 @@ sudoers_policy_deserialize_info(struct sudoers_context *ctx, void *v,
 	}
 	if (MATCHES(*cur, "cwd=")) {
 	    CHECK(*cur, "cwd=");
+	    p = *cur + sizeof("cwd=") - 1;
+	    /* It is possible for the actual cwd to be larger than PATH_MAX. */
+	    if (strlen(p) >= PATH_MAX * 2) {
+		sudo_warnx(U_("path name for \"%s\" too long"), "cwd");
+		goto bad;
+	    }
 	    free(ctx->user.cwd);
-	    if ((ctx->user.cwd = strdup(*cur + sizeof("cwd=") - 1)) == NULL)
+	    if ((ctx->user.cwd = strdup(p)) == NULL)
 		goto oom;
 	    continue;
 	}
 	if (MATCHES(*cur, "tty=")) {
 	    CHECK(*cur, "tty=");
+	    p = *cur + sizeof("tty=") - 1;
+	    if (strlen(p) >= PATH_MAX) {
+		sudo_warnx(U_("path name for \"%s\" too long"), "tty");
+		goto bad;
+	    }
 	    free(ctx->user.ttypath);
-	    if ((ctx->user.ttypath = strdup(*cur + sizeof("tty=") - 1)) == NULL)
+	    if ((ctx->user.ttypath = strdup(p)) == NULL)
 		goto oom;
 	    ctx->user.tty = ctx->user.ttypath;
 	    if (strncmp(ctx->user.tty, _PATH_DEV, sizeof(_PATH_DEV) - 1) == 0)
@@ -480,7 +552,13 @@ sudoers_policy_deserialize_info(struct sudoers_context *ctx, void *v,
 	}
 	if (MATCHES(*cur, "host=")) {
 	    CHECK(*cur, "host=");
-	    host = *cur + sizeof("host=") - 1;
+	    p = *cur + sizeof("host=") - 1;
+	    if (strlen(p) >= host_name_max) {
+		errno = ENAMETOOLONG;
+		sudo_warnx("host");
+		goto bad;
+	    }
+	    host = p;
 	    continue;
 	}
 	if (MATCHES(*cur, "lines=")) {
