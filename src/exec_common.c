@@ -97,12 +97,17 @@ sudo_execve(int fd, const char *path, char *const argv[], char *envp[],
     sudo_debug_execve(SUDO_DEBUG_INFO, path, argv, envp);
 
     /* Modify the environment as needed to trap execve(). */
-    if (ISSET(flags, CD_NOEXEC))
+    if (ISSET(flags, CD_NOEXEC)) {
 	envp = disable_execute(envp, sudo_conf_noexec_path());
+	if (envp == NULL)
+	    debug_return_int(-1);
+    }
     if (ISSET(flags, CD_INTERCEPT|CD_LOG_SUBCMDS)) {
 	if (!ISSET(flags, CD_USE_PTRACE)) {
 	    envp = enable_intercept(envp, sudo_conf_intercept_path(),
 		intercept_fd);
+	    if (envp == NULL)
+		debug_return_int(-1);
 	}
     }
 
